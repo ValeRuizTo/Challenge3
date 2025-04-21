@@ -121,7 +121,20 @@ Esta capa es responsable de garantizar que los datos lleguen al usuario de forma
 - **Fiabilidad:** Uso de sensores calibrados para evitar falsas alarmas.
 - **Bajo Consumo Energético:** Optimización del código para minimizar el consumo de energía.
 - **Interfaz Intuitiva:** Uso de una pantalla LCD y alertas sonoras para notificaciones claras.
-- **Escalabilidad:** Posibilidad de agregar conectividad remota en versiones futuras.
+- **Escalabilidad:**
+   - ***Escalabilidad Local:*** El sistema permite agregar sensores adicionales (por ejemplo, sensores de humedad del suelo o viento) y módulos de expansión conectados vía I2C o SPI.
+   - ***Escalabilidad Remota:*** El diseño contempla la inclusión de una plataforma IoT basada en la nube (recomendada: Ubidots) que recibe los datos desde una Raspberry Pi actuando como Gateway IoT, permitiendo acceso al tablero de control desde cualquier parte del país vía MQTT.
+   - Interconexión Modular: Cada módulo (ESP32, Raspberry Pi, plataforma IoT) se comunica mediante protocolos estándar (MQTT, HTTP), facilitando la integración de nuevas tecnologías o nodos.
+
+- **Conectividad Dual (Local y Global):**
+   - ***Local:*** El ESP32 actúa como servidor web embebido para ofrecer un tablero de control accesible desde dispositivos móviles o PCs conectados a la WLAN de la alcaldía. Desde esta interfaz se pueden visualizar datos actuales, históricos, notificaciones y controlar alarmas.
+   - ***Global:*** Todos los datos recolectados por el ESP32 son enviados a través del protocolo MQTT a una Raspberry Pi que actúa como Gateway IoT. Este dispositivo almacena los datos en una base de datos SQLite local, los procesa y posteriormente los retransmite a la plataforma IoT Ubidots, accesible desde cualquier lugar del país.
+
+- **Modularidad y Responsabilidad por Hilos:**
+
+  - Las mediciones se ejecutan en hilos separados del hilo principal *mediante interrupciones* para asegurar respuesta inmediata del sistema sin bloquear otras funcionalidades.
+  - La transmisión de datos tanto desde el ESP32 como desde la Raspberry Pi también se realiza en procesos independientes o asincrónicos para evitar congestión o pérdida de paquetes de datos.
+
 
 
 ## **Definición de umbrales de seguridad**
@@ -200,10 +213,98 @@ Si se activa una alerta por alguna de las condiciones previamente definidas, el 
 - Se activa el **zumbador (buzzer)** con una frecuencia de `1000 Hz`.
 - La pantalla **LCD muestra el mensaje "FUEGO!"** para alertar al usuario.
 
-**Monitoreo en tiempo real:**
-- La alerta y los datos del sensor se envían a la **interfaz web embebida**.
-- El usuario puede visualizar en línea el estado del sistema y tomar decisiones inmediatas.
+**Monitoreo en tiempo real (local y global):**
+- La alerta y los datos de los sensores se envían a la interfaz web embebida alojada en el ESP32, accesible desde dispositivos conectados a la WLAN ofrecida por la alcaldía.
+- A través del “Tablero de control local”, las autoridades pueden:
+   - Visualizar las variables físicas actuales.
+   - Ver un histórico reciente almacenado temporalmente en el ESP32.
+   - Recibir notificaciones visuales.
+   - Desactivar alarmas físicas mediante botones en la interfaz.
 
+**Envío de datos al Gateway IoT y plataforma en la nube:**
+- Los datos del evento (temperatura, gas, llama, fecha, hora) son enviados mediante el protocolo MQTT desde el ESP32 a una Raspberry Pi que actúa como Gateway IoT.
+- La Raspberry Pi:
+  - Recibe y almacena los datos en una base de datos SQLite, conservando un registro estructurado de eventos y condiciones normales.
+  - Procesa y retransmite los datos a la plataforma IoT en la nube (recomendada: Ubidots) utilizando nuevamente MQTT.
+  - Permite monitoreo en tiempo real desde cualquier lugar de Colombia a través de un “Tablero de control global” alojado en dicha plataforma.
+
+
+.
+
+.
+
+.
+.
+
+.
+
+.
+
+.
+
+.
+
+.
+
+.
+
+.
+
+.
+
+.
+
+.
+
+-
+-
+.
+.
+
+.
+
+.
+
+.
+
+.
+
+.
+
+.
+
+.
+
+.
+
+.
+
+.
+
+.
+
+.
+
+.
+
+.
+
+.
+
+
+.
+.
+.
+.
+
+
+.
+.
+.
+.
+
+
+EL RESTO HACIA ABAJO NO ESTA EDITADO
 
 #### **2.4 Manejo de tareas concurrentes**
 
