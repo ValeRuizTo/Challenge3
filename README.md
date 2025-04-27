@@ -532,29 +532,102 @@ Cuando el usuario pulsa el switch en Ubidots, llega un mensaje {"value":0or1}, q
 
 ## **2.7 Ubidots**
 
-.
-.
+Ubidots es una plataforma IoT basada en la nube que permite recolectar, almacenar, visualizar y actuar sobre datos de sensores en tiempo real.  
+- **Dashboard personalizable**: gráficos, mapas, indicadores y notificaciones.  
+- **API MQTT/HTTP**: para publicar y suscribirse a datos de forma ligera.  
+- **Control remoto**: permite enviar comandos a dispositivos conectados.
 
 
-.
+#### Arquitectura de Integración
 
-.
+ESP32 ─── MQTT local ─── Raspberry Pi ─── MQTT Ubidots ─── Ubidots Cloud
 
-.
 
-.
+1. ESP32 publica telemetría en el broker local (cerrosorientales/sensores).
 
-.
+2. Raspberry Pi (Gateway) recibe, guarda en SQLite y reenvía cada variable a Ubidots.
 
-.
+3. Ubidots Cloud almacena, grafica y notifica eventos; también emite comandos de control de vuelta.
 
-.
+#### Configuración MQTT para Ubidots
 
-.
+- Host: industrial.api.ubidots.com
 
-.
+- Puerto: 1883
 
-.
+- Token: En Ubidots, el **Token** es tu credencial de autenticación para conectar clientes MQTT/HTTP a la cuenta.  
+  - **¿Para qué sirve?**
+   - Permite a tu cliente MQTT (Raspberry Pi o ESP32) probar que está autorizado a publicar y suscribirse en tus recursos de Ubidots.  
+   - Se usa en lugar de usuario/contraseña tradicionales:  
+    
+         ubidots_mqtt_client.username_pw_set(UBIDOTS_TOKEN, "")
+
+
+
+#### Tópicos MQTT en Ubidots
+
+Ubidots sigue una estructura de tópicos basada en **Devices** y **Variables**:
+
+- **device_label**: nombre que se le asigno al device (p. ej. `raspi`).  
+- **variable_label**: nombre de cada dato que se esta enviando (p. ej. `temperatura`, `gas`, `llama`, `alarma`).  
+      
+      UBIDOTS_TOPICS = {
+          "temperatura": f"/v1.6/devices/{UBIDOTS_DEVICE_LABEL}/temperatura",
+          "gas":         f"/v1.6/devices/{UBIDOTS_DEVICE_LABEL}/gas",
+          "llama":       f"/v1.6/devices/{UBIDOTS_DEVICE_LABEL}/llama",
+          "alarma":      f"/v1.6/devices/{UBIDOTS_DEVICE_LABEL}/alarma"
+      }
+
+
+
+#### Publicación de Telemetría
+En el hilo de procesamiento de la Raspberry Pi (process_messages):
+       
+       for var, topic in UBIDOTS_TOPICS.items():
+           payload_ub = json.dumps({"value": value})
+           ubidots_mqtt_client.publish(topic, payload_ub)
+           logging.info(f"Enviado a Ubidots: topic={topic}, payload={payload_ub}")
+
+- Se formatea cada variable (temperatura, gas, llama, alarma) como JSON {"value": ...}.
+- Ubidots recibe y actualiza sus widgets en el dashboard en tiempo real.
+
+
+
+#### Suscripción a Comandos de Control
+Para que el dashboard Ubidots pueda activar/desactivar el buzzer del ESP32:
+         
+         def on_ubidots_connect(client, userdata, flags, rc):
+             if rc == 0:
+                 client.subscribe(UBIDOTS_CONTROL_TOPIC)
+         
+         def on_ubidots_message(client, userdata, message):
+             value = float(message.payload.decode())
+             state = "ON" if value == 1 else "OFF"
+             local_mqtt_client.publish("cerrosorientales/control/zumbon", state)
+
+- On_ubidots_connect: se suscribe al tópico /alarm_control/lv.
+
+- on_ubidots_message: convierte el valor recibido (0/1) en "OFF"/"ON" y lo re-publica al broker local.
+
+- El ESP32, suscrito a cerrosorientales/control/zumbon, recibe ese comando y activa o desactiva el buzzer.
+
+#### Flujo Completo de Datos en Ubidots
+
+1. Raspberry Pi publica en MQTT Ubidots.
+
+2. Ubidots Cloud recibe y visualiza:
+
+ - Gráficos de línea para tendencias.
+
+ - Indicadores de valor actual.
+
+ - Alertas configurables (email, SMS, webhook).
+
+3. Operador puede interactuar con el dashboard:
+
+ - Desactivar buzzer (publica en /alarm_control/lv).
+
+
 
 ## **2.8 Diagramas UML**
 1. **Diagrama de Caso de Uso**: Describe la interacción entre los usuarios y el sistema
