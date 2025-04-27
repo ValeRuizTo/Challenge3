@@ -674,7 +674,7 @@ Para que el dashboard Ubidots pueda activar/desactivar el buzzer del ESP32:
 *Estado: Inicio*
  -	Se ejecuta setup(): Inicializa Serial, configura pines y mutex, conecta a Wi-Fi y al broker MQTT, crea tareas FreeRTOS (leerSensores, enviarMqtt), y arranca el servidor Web.
  -	Por qué: Preparar hardware y comunicaciones antes de entrar en el bucle principal.
- -Después: → Monitoreo Normal
+ - ***Después: → Monitoreo Normal***
   	
 *Estado: Monitoreo Normal*
  -	El hilo leerSensores actualiza continuamente valorTemp, valorGas, y hayLlama.
@@ -807,51 +807,31 @@ Para que el dashboard Ubidots pueda activar/desactivar el buzzer del ESP32:
   -	Por qué: Garantizar un cierre limpio del programa al ser interrumpido por el usuario.
   -	Después: → Fin del programa.
 
-.
-.
-
-
-.
-
-.
-
-..
-
-.
-
-.
-
-.
-
-.
-
-.
-
-
-.
-
-.
-
-
 
 
 
 #### **2.9 Estándares de Diseño Aplicados**
 
 **1. Diseño Modular**  
-- Se basa en el principio de **separación de preocupaciones** (*Separation of Concerns*), que facilita la escalabilidad y mantenimiento del código.  
-- Permite reutilizar módulos sin afectar el sistema completo.  
-- Relacionado con los principios **SOLID** en ingeniería de software, específicamente el principio de **Responsabilidad Única (SRP)**.  
+- Basado en principio de Separation of Concerns: cada componente (lectura de sensores, servidor web, cliente MQTT, procesamiento en Raspberry) vive en su propio módulo/archivo.
+- Facilita mantenimiento, prueba y extensión (por ejemplo, agregar nuevos sensores o dashboards).  
+- Se apega al principio de Responsabilidad Única (SRP) de SOLID: una función o clase hace exactamente una tarea.
 
 **2. Programación Concurrente (FreeRTOS)**  
-- Uso de **sistemas operativos en tiempo real (RTOS)** para gestionar múltiples tareas sin bloqueo.  
+- ESP32: uso de FreeRTOS para dos tareas (leerSensores, enviarMqtt) y semáforo (xMutex) para proteger variables compartidas.
 - Asegura una **baja latencia** y una mejor **responsividad** en sistemas embebidos.  
-- Se alinea con estándares como **IEEE 1003 (POSIX Threads)** y prácticas de **sistemas concurrentes**.  
+- Se alinea con estándares como **IEEE 1003 (POSIX Threads)** y prácticas de **sistemas concurrentes**.
+- Raspberry Pi: hilo que se ejecuta en segundo plano y al que no se le exige que termine para que el programa principal finalice process_messages + hilos de MQTT (loop_start()). 
 
-**3. Arquitectura Cliente-Servidor**  
+**3. Arquitectura Cliente-Servidor + Broker MQTT**  
 - Sigue el estándar de **arquitectura distribuida** usado en la web y en sistemas embebidos.  
 - Basado en el modelo **RESTful** para estructurar la comunicación entre cliente y servidor.  
-- Compatible con estándares de **HTTP/HTTPS (RFC 2616, RFC 7231)** y protocolos de comunicación embebida.  
+- Compatible con estándares de **HTTP/HTTPS (RFC 2616, RFC 7231)** y protocolos de comunicación embebida.
+- RESTful embebido en ESP32 (HTTP GET para /data, /history, /toggle…).
+- MQTT v3.1.1 para telemetría y control remoto:
+  - Tópicos jerárquicos (cerrosorientales/sensores, /control/..., /v1.6/devices/... en Ubidots).
+  - JSON estandarizado para payloads ({"value":…} en Ubidots; {"temperatura":…} local).
+- Compatible con RFC 7231 (HTTP) y MQTT Specification.
 
 **4. Manejo de Recursos Compartidos**  
 - Uso de variables **volatile** y técnicas de sincronización para evitar **condiciones de carrera**.  
@@ -864,7 +844,17 @@ Para que el dashboard Ubidots pueda activar/desactivar el buzzer del ESP32:
 **6. Manejo de Errores**  
 - Uso de estrategias de **reconexión WiFi automática** y validaciones en la interfaz web.  
 - Implementación de **mecanismos de detección y corrección de fallos** en el software.  
-- Basado en principios de **tolerancia a fallos** en sistemas embebidos.  
+- Basado en principios de **tolerancia a fallos** en sistemas embebidos.
+- Reconexión automática Wi-Fi y MQTT (ESP32) ante desconexión.
+
+
+**7. Persistencia con SQLite**  
+- En Raspberry Pi, cada lectura se almacena localmente (save_to_db) antes de enviar a la nube.
+- Garantiza resiliencia ante fallos de red y auditoría histórica.
+
+**8. Seguridad en IoT**  
+- Token de Ubidots como credencial en MQTT (no usar credenciales fijas de usuario).
+
 
 ## 3. Configuración Experimental y Resultados
 
