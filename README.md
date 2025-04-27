@@ -104,9 +104,9 @@ Esta capa es responsable de garantizar que los datos lleguen al usuario de forma
 
 ***Comunicación hacia el Exterior:***
 
-- Protocolo MQTT: Facilita la comunicación entre el ESP32 (nodo sensor) y la Raspberry Pi (gateway), usando un enfoque ligero y eficiente para IoT.
+- Protocolo MQTT: Facilita la comunicación entre el ESP32 (nodo sensor) y la Raspberry Pi (gateway), usando un enfoque ligero y eficiente para IoT. MQTT es un protocolo de mensajería basado en estándares, o un conjunto de reglas, que se utiliza para la comunicación de un equipo a otro, admite la mensajería entre dispositivos a la nube y la nube al dispositivo. [10]
 - Gateway Raspberry Pi: Centraliza la información de varios nodos, almacena los datos en una base de datos local y los reenvía a una plataforma de monitoreo en la nube.
-- Plataforma Ubidots: Presenta un tablero de control global donde se visualiza el estado de cada sensor en tiempo real desde cualquier parte del mundo, facilitando la respuesta ante eventos de riesgo.
+- Plataforma Ubidots: Presenta un tablero de control global, es utilizada para visualizar las variables en tiempo real, también nos permite modificar las variables del proceso desde cualquier parte del mundo, los cambios se pueden realizar mediante internet atreves de la página web Ubidots.[9]
 - Acceso remoto y multiplataforma: El sistema es accesible desde computadoras o dispositivos móviles, permitiendo la supervisión continua sin importar la ubicación física del usuario.
 
 ![.](imagenesWiki/arqui1.jpg)
@@ -449,7 +449,7 @@ Cuando llega un mensaje de control (“ON”/“OFF”) para la alarma, el callb
 
 ### MQTT en el esp32
 
-1. Publicación de telemetría
+1. Publicación de telemetría (es un sistema automatizado de comunicación (alámbrico o inalámbrico) que permite recopilar datos en lugares remotos. Se encarga de recoger información, procesarla y transmitirla hasta el lugar donde se monitorea el sistema.)[8]
 
 Tarea FreeRTOS enviarMqtt lee cada 500 ms las variables globales (valorTemp, valorGas, hayLlama, zumbOn) bajo un mutex y hace:
 
@@ -1408,7 +1408,8 @@ En esta imagen se aprecia la maqueta del sistema, dentro de la caja del medio es
 
 ## **7. Referencias**
  1:  E. R. Moraguez, "Ventajas y Desventajas ESP32 en IoT y Desarrollo," LovTechnology, 9 meses atrás. [En línea]. Disponible en: https://lovtechnology.com/ventajas-y-desventajas-esp32-en-iot-y-desarrollo/ (Accedido: 22-mar-2025)​
-  2: Robotlandia, "Módulo KY-028 Sensor de Temperatura Digital", https://robotlandia.es/temperatura-y-humedad/681-modulo-ky-028-sensor-de-temperatura-digital.html (accedido: 16 de febrero de 2025).
+ 
+ 2: Robotlandia, "Módulo KY-028 Sensor de Temperatura Digital", https://robotlandia.es/temperatura-y-humedad/681-modulo-ky-028-sensor-de-temperatura-digital.html (accedido: 16 de febrero de 2025).
 
  3: Julpin, "Módulo Sensor Analógico de Gas MQ-2 para Arduino", https://www.julpin.com.co/inicio/modulos-sensores/492-modulo-sensor-analogico-de-gas-mq-2-para-arduino.html (accedido: 16 de febrero de 2025).
 
@@ -1420,6 +1421,12 @@ En esta imagen se aprecia la maqueta del sistema, dentro de la caja del medio es
 
  7: IEEE Standards Association, "The Evolution of Wi-Fi Technology and Standards," 16 de mayo de 2023. [En línea]. Disponible: https://standards.ieee.org/beyond-standards/the-evolution-of-wi-fi-technology-and-standards/
 
- 8: "¿Cuáles son sus estándares de diseño de ingeniería?", LinkedIn, 2023. [En línea]. Disponible: https://es.linkedin.com/advice/0/what-your-engineering-design-standards-skills-engineering-design?lang=es. [Accedido: 23-mar-2025].​
+ 8: SensorGo, “Telemetría,” SensorGo.mx. [En línea]. Disponible: https://sensorgo.mx/telemetria/. [Consultado: 25-Abr-2025].
 
- 9: INCOSE, "SE Standards," 2023. [En línea]. Disponible: https://www.incose.org/about-systems-engineering/se-standards. [Accedido: 23-mar-2025].
+ 9: Universidad Politécnica Salesiana, “La herramienta de Ubidots, utilizada para la visualización de variables en la página web Ubidots,” DSpace UPS. [En línea]. Disponible: https://dspace.ups.edu.ec/handle/123456789/20298. [Consultado: 25-Abr-2025].
+ 
+ 10: Amazon Web Services, Inc., “What Is MQTT?,” AWS. [En línea]. Disponible: https://aws.amazon.com/es/what-is/mqtt/. [Consultado: 25-Abr-2025].
+
+ 11: "¿Cuáles son sus estándares de diseño de ingeniería?", LinkedIn, 2023. [En línea]. Disponible: https://es.linkedin.com/advice/0/what-your-engineering-design-standards-skills-engineering-design?lang=es. [Accedido: 23-mar-2025].​
+
+ 12: INCOSE, "SE Standards," 2023. [En línea]. Disponible: https://www.incose.org/about-systems-engineering/se-standards. [Accedido: 23-mar-2025].
