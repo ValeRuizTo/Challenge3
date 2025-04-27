@@ -561,51 +561,40 @@ El protocolo **IEEE 802.11** define los estándares para redes WiFi, y en este c
 
 ### 5.1 Retos Presentados Durante el Desarrollo
 
-- **Calibración de Sensores:**  
-  La integración y calibración de los distintos sensores (temperatura, gas y llama) representaron un desafío, ya que se debía asegurar la coherencia entre las mediciones y evitar falsas alarmas derivadas de variaciones ambientales naturales.
+- **Calibración de Sensores y Actuadores:**  
+  Garantizar lecturas estables de temperatura, gas y llama mientras se controla correctamente el buzzer, el LED RGB y el display LCD requirió ajustar umbrales y tiempos de muestreo para evitar falsas alertas y comportamientos erráticos.
 
-- **Gestión de Tareas Concurrentes:**  
-  La implementación de FreeRTOS para el manejo de hilos requirió una cuidadosa asignación de recursos y sincronización de variables compartidas para garantizar que las tareas (lectura de sensores, actualización de la interfaz web y control de actuadores) se ejecutaran de manera eficiente y sin conflictos.
+- **Comunicación Bilateral MQTT (Local ↔ Internet):**  
+  Integrar simultáneamente el broker local en la Raspberry Pi y el envío/recepción con Ubidots expuso retos de configuración de tópicos, reconexión automática y formateo de payloads JSON para mantener sincronizados ambos extremos.
 
-- **Interfaz Web y Conectividad:**  
-  Adaptar la interfaz web para que fuera accesible y funcional desde múltiples dispositivos, así como garantizar la estabilidad de la conexión a la red WLAN, implicó superar desafíos relacionados con la comunicación y la gestión de solicitudes HTTP en tiempo real.
+- **Gestión de Concurrencia con FreeRTOS y Semáforos:**  
+  El uso de tareas independientes para lectura de sensores, publicación MQTT y gestión del servidor web exigió coordinación mediante semáforos (mutex) y colas (queues) para proteger variables compartidas y evitar bloqueos.
 
-- **Tolerancia a Fallos:**  
-  Se presentó la necesidad de implementar mecanismos de reconexión y manejo de errores para mantener la operatividad del sistema en entornos con variaciones en la conectividad o en condiciones ambientales extremas.
-- **Problemas con el Sensor de Temperatura:**
-Al inicio del desarrollo, el sensor de temperatura (DS18B20) no funcionaba; por más que lo intentamos, no sensaba nada, devolviendo valores erróneos como -127°C. Unos días después, probamos con otro código de ejemplo y el sensor funcionó correctamente, lo que nos permitió confirmar que el hardware estaba operativo. Sin embargo, al volver a cargar nuestro código inicial, el sensor dejó de funcionar nuevamente. Decidimos cargar otra vez el código que sí funcionaba, pero para nuestra sorpresa, ya no operaba. Tras reiniciar el computador y realizar varias pruebas, concluimos que había un código residual en el microcontrolador que lo estaba deshabilitando, posiblemente debido a una configuración incorrecta del bus OneWire o un conflicto con otras librerías. Finalmente, resolvimos el problema limpiando la memoria del ESP32
-- **Dificultad en la obtención e instalación de librerías:** Para poder trabajar con el sensor DS18B20 y la pantalla LCD, fue necesario encontrar e instalar las librerías adecuadas. En particular, usamos las siguientes:
-  - OneWire.h: Para la comunicación con el sensor de temperatura DS18B20.
-  - DallasTemperature.h: Para procesar los datos del sensor DS18B20.
-  - Wire.h y LiquidCrystal_I2C.h: Para manejar la pantalla LCD con comunicación I2C.
+- **Configuración de la Raspberry Pi como Broker MQTT:**  
+  Montar Mosquitto en la Pi, exponerlo al ESP32 y luego conectarlo a Internet (Ubidots) implicó ajustes en archivos de configuración, autorización por contraseña y puertos, así como pruebas de estabilidad bajo carga.
 
-Encontrar las versiones correctas y lograr que funcionaran correctamente en el entorno de desarrollo tomó tiempo.
+- **Problemas de Contraseñas y Seguridad WiFi/MQTT:**  
+  Fallos iniciales al conectar el ESP32 al access point y al broker (credenciales erróneas o caracteres especiales en las claves) obligaron a implementar reintentos y mensajes de log detallados para diagnosticar rápidamente los errores.
+
+- **Conflictos de Librerías y Código Residual:**  
+  Persistencia de código anterior en el ESP32 provocaba comportamientos inesperados (bus OneWire bloqueado, display sin responder). La solución implicó un `esptool erase_flash` y limpieza de dependencias en el entorno de desarrollo.
 
 ### 5.2 Conclusiones
 
-El desarrollo del sistema IoT para la detección temprana de incendios en los cerros orientales de Bogotá ha demostrado ser una solución viable y de bajo costo para enfrentar riesgos ambientales. Se concluye que:
-
-- La integración de sensores, actuadores y una interfaz web permite una monitorización en tiempo real y una respuesta rápida ante condiciones de riesgo.
-- La arquitectura modular y el uso de FreeRTOS facilitan la escalabilidad y el mantenimiento del sistema, permitiendo futuras expansiones y mejoras.
-- Las pruebas realizadas confirman la precisión y fiabilidad del sistema, así como su capacidad para activar alertas de manera efectiva y coordinada.
-- La solución propuesta contribuye significativamente a la prevención y mitigación de incendios forestales, ofreciendo un sistema de alerta temprana que puede ser implementado en zonas vulnerables.
+- La **arquitectura modular** y el uso de **FreeRTOS** con semáforos garantizan un flujo de datos confiable entre tareas críticas (sensores, actuadores, red).
+- La **comunicación bidireccional** por MQTT permite tanto publicar telemetría en Ubidots como recibir comandos remotos para reset de alarma o control de actuadores.
+- La **Raspberry Pi** como broker local mejora la latencia en la red LAN, mientras que el enlace a Ubidots ofrece una capa de monitoreo y control global.
+- El sistema muestra **robustez** frente a desconexiones de red y reinicios: los mecanismos de reconexión automática y persistencia en SQLite aseguran que no se pierdan datos.
+- Gracias al riguroso manejo de errores en los módulos WiFi, MQTT y base de datos, hoy contamos con un sistema estable que cubre desde la captura de señales físicas hasta la presentación web local y la transmisión a la nube.
 
 ### 5.3 Trabajo Futuro
 
-- **Incorporación de Nuevos Sensores:**  
-  Integrar sensores adicionales, como detectores de humo, humedad y velocidad del viento, para obtener una visión más completa de las condiciones ambientales y mejorar la detección temprana de incendios o mejora de estos sensores ya implementado asi mismo como su mejor manejo y mayor amplitud paa su implementacion.
-
-- **Optimización del Algoritmo de Detección:**  
-  Refinar los algoritmos de análisis de datos para reducir las falsas alarmas y aumentar la precisión en la detección de condiciones anómalas, utilizando técnicas de procesamiento de señales y machine learning.
-
-- **Mejoras en la Comunicación:**  
-  Evaluar la posibilidad de implementar tecnologías de comunicación de largo alcance (como redes 4G/5G) para ampliar la cobertura del sistema, especialmente en zonas de difícil acceso.
-
-- **Desarrollo de Aplicaciones Móviles:**  
-  Crear una aplicación móvil complementaria a la interfaz web que permita a los usuarios recibir notificaciones en tiempo real, gestionar alertas y monitorear el estado del sistema desde cualquier lugar.
-
-- **Pruebas a Escala Real:**  
-  Realizar pruebas piloto en campo en colaboración con autoridades locales para validar el sistema en condiciones reales y ajustar parámetros en función de los resultados obtenidos, lo que permitirá adaptar y mejorar la solución para implementaciones a gran escala.
+- Nuevos Sensores Ambientales:** detectar humo, humedad y velocidad del viento para enriquecer el análisis y anticipar incendios con mayores garantías.
+- Mejoras de Seguridad y Gestión de Credenciales:** implementar almacenamiento seguro (p.e. Key Vault) para tokens MQTT/WiFi y certificados TLS en Mosquitto.
+- Algoritmos de Detección Inteligente:** incorporar filtros de señal y modelos de machine learning para diferenciar eventos reales de ruido ambiental y reducir falsas alarmas.
+- Comunicaciones de Largo Alcance:** evaluar módulos 4G/5G o LoRaWAN para cubrir áreas rurales sin infraestructura de red estable.
+- Aplicación Móvil y Notificaciones Push:** desarrollar frontend móvil nativo o multiplataforma que reciba alertas en tiempo real y permita controlar actuadores desde cualquier dispositivo.
+- Pruebas Piloto con Autoridades Locales:** desplegar en terreno con Bomberos y agentes ambientales para ajustar parámetros de detección y validar operatividad en condiciones reales.  
 
 ## **6. Anexos**
 ### Codigo comentado
