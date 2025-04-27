@@ -27,7 +27,6 @@ Este documento se divide en las siguientes secciones:
 3. **Autoevaluación del protocolo de pruebas**: Verificación de confiabilidad y precisión.
 4. **Conclusiones y trabajo futuro**: Desafíos enfrentados y mejoras futuras.
 5. **Anexos**: Código fuente, esquemáticos y documentación adicional.
-
 ## 2. Solución Propuesta
 ### 2.1 Restricciones de Diseño
 
@@ -60,7 +59,7 @@ Este documento se divide en las siguientes secciones:
 - Posibilidad de mejoras futuras en algoritmos de detección, análisis de datos, y visualización en la plataforma IoT.
 
 
-### 2.2 Arquitectura Propuesta
+## 2.2 Arquitectura Propuesta
 
 ***Arquitectura IoT del Sistema***
 
@@ -107,7 +106,7 @@ Esta capa es responsable de garantizar que los datos lleguen al usuario de forma
 
 - Protocolo MQTT: Facilita la comunicación entre el ESP32 (nodo sensor) y la Raspberry Pi (gateway), usando un enfoque ligero y eficiente para IoT.
 - Gateway Raspberry Pi: Centraliza la información de varios nodos, almacena los datos en una base de datos local y los reenvía a una plataforma de monitoreo en la nube.
-- Plataforma en la nube (por ejemplo, Ubidots): Presenta un tablero de control global donde se visualiza el estado de cada sensor en tiempo real desde cualquier parte del mundo, facilitando la respuesta ante eventos de riesgo.
+- Plataforma Ubidots: Presenta un tablero de control global donde se visualiza el estado de cada sensor en tiempo real desde cualquier parte del mundo, facilitando la respuesta ante eventos de riesgo.
 - Acceso remoto y multiplataforma: El sistema es accesible desde computadoras o dispositivos móviles, permitiendo la supervisión continua sin importar la ubicación física del usuario.
 
 ![.](imagenesWiki/arqui1.jpg)
@@ -115,7 +114,7 @@ Esta capa es responsable de garantizar que los datos lleguen al usuario de forma
 
 
 
-### 2.3 Desarrollo Teórico Modular
+## 2.3 Desarrollo Teórico Modular
 
 #### **Principios de Diseño del Sistema**
 - **Fiabilidad:** Uso de sensores calibrados para evitar falsas alarmas.
@@ -137,7 +136,7 @@ Esta capa es responsable de garantizar que los datos lleguen al usuario de forma
 
 
 
-## **Definición de umbrales de seguridad**
+### **Definición de umbrales de seguridad**
 
 Para garantizar una detección confiable de incendios, se establecieron los siguientes umbrales en el sistema:
 
@@ -170,7 +169,7 @@ Sin embargo, se decidió establecer un umbral superior de **30°C** para la acti
 
 
 
-## **Condiciones de activación de alerta**
+### **Condiciones de activación de alerta**
 El sistema genera una alerta cuando ocurre cualquiera de las siguientes condiciones:
 
 1. **Sobrecalentamiento y gas elevado:** La temperatura supera los `30°C` y el nivel de gas es mayor a `700`.
@@ -181,7 +180,7 @@ Cuando se activa una de estas condiciones, el sistema toma medidas inmediatas pa
 
 
 
-## **Consideraciones del entorno de laboratorio**
+### **Consideraciones del entorno de laboratorio**
 Las condiciones ambientales en el laboratorio difieren del entorno final donde se implementará el sistema. Por este motivo:
 
 - Se ajustaron los umbrales para adaptarse al entorno de prueba y minimizar **falsos positivos**.
@@ -191,7 +190,7 @@ Estos ajustes garantizan que el sistema responda correctamente sin generar alert
 
 
 
-## **Funcionamiento de la detección de cambios bruscos de temperatura**
+### **Funcionamiento de la detección de cambios bruscos de temperatura**
 El sistema monitorea la temperatura de forma continua para identificar cambios abruptos:
 
 1. **Comparación de lecturas:** Se compara la temperatura actual (`valorTemp`) con la última registrada (`tempAnt`).
@@ -201,11 +200,11 @@ El sistema monitorea la temperatura de forma continua para identificar cambios a
    - La información se envía a la interfaz web para que el usuario la visualice en tiempo real.
 
 
-## **Intervalo de detección de cambios de temperatura**
+### **Intervalo de detección de cambios de temperatura**
 - La temperatura se actualiza cada `500 ms` (`refresco = 500`), permitiendo una detección casi en **tiempo real**.
 - Esto garantiza que cualquier cambio repentino se registre de manera inmediata y se tomen acciones rápidas.
 
-## **Respuesta del sistema ante detección de incendio**
+### **Respuesta del sistema ante detección de incendio**
 Si se activa una alerta por alguna de las condiciones previamente definidas, el sistema ejecuta las siguientes acciones:
 
 **Indicadores visuales y auditivos:**
@@ -225,267 +224,546 @@ Si se activa una alerta por alguna de las condiciones previamente definidas, el 
 - Los datos del evento (temperatura, gas, llama, fecha, hora) son enviados mediante el protocolo MQTT desde el ESP32 a una Raspberry Pi que actúa como Gateway IoT.
 - La Raspberry Pi:
   - Recibe y almacena los datos en una base de datos SQLite, conservando un registro estructurado de eventos y condiciones normales.
-  - Procesa y retransmite los datos a la plataforma IoT en la nube (recomendada: Ubidots) utilizando nuevamente MQTT.
+  - Procesa y retransmite los datos a la plataforma IoT en la nube, Ubidots utilizando nuevamente MQTT.
   - Permite monitoreo en tiempo real desde cualquier lugar de Colombia a través de un “Tablero de control global” alojado en dicha plataforma.
 
 
-.
 
-.
-
-.
-.
-
-.
-
-.
-
-.
-
-.
-
-.
-
-.
-
-.
-
-.
-
-.
-
-.
-
--
--
-.
-.
-
-.
-
-.
-
-.
-
-.
-
-.
-
-.
-
-.
-
-.
-
-.
-
-.
-
-.
-
-.
-
-.
-
-.
-
-.
-
-
-.
-.
-.
-.
-
-
-.
-.
-.
-.
-
-
-EL RESTO HACIA ABAJO NO ESTA EDITADO
-
-#### **2.4 Manejo de tareas concurrentes**
+## **2.4 Manejo de tareas concurrentes**
 
 "Un hilo es la unidad de ejecución más pequeña de un programa. El multihilo permite que un programa realice múltiples tareas simultáneamente al dividir su carga de trabajo en componentes más pequeños, ejecutables independientemente, llamados hilos" [6]
 
 El sistema utiliza hilos mediante el sistema operativo en tiempo real (RTOS) FreeRTOS, que está integrado en el framework del ESP32. FreeRTOS permite la ejecución concurrente de tareas (hilos) en el microcontrolador, lo que mejora la capacidad del sistema para realizar múltiples operaciones de manera simultánea.
 
-- **Implementación de Hilos**:
+## Hilos (FreeRTOS Tasks)
 
-  El sistema crea un hilo (o tarea) en la función setup() utilizando la API de FreeRTOS
+En este proyecto se crean **dos tareas** con la API de FreeRTOS:
 
-      xTaskCreate(leerSensores, "Sensores", 4096, NULL, 1, NULL);
+1. **Tarea “Sensores”**  
+   - **Creación**  
+                 xTaskCreate(
+                   leerSensores,    // función que se ejecutará en el hilo
+     
+                   "Sensores",      // nombre de la tarea
+     
+                   4096,            // tamaño de pila (bytes)
+     
+                   NULL,            // parámetro de la tarea
+     
+                   1,               // prioridad (1 = baja)
+     
+                   NULL             // handle (no se usa)
+     
+                 );
+     
+   - **Función asociada**: `void leerSensores(void *arg)`  
+     - Inicializa el sensor DS18B20 (`tempSensor.begin()`) y la resolución ADC (`analogReadResolution(10)`).  
+     - En bucle infinito:
+       1. Solicita temperatura (`tempSensor.requestTemperatures()` + `getTempCByIndex(0)`).
+       2. Lee nivel de gas (`analogRead(gasPin)`).
+       3. Detecta llama (`!digitalRead(PIN_LLAMAS)`).
+       4. **Bajo mutex**: actualiza las variables globales `valorTemp`, `valorGas`, `hayLlama` y guarda en el buffer circular `logDatos[]`.
+       5. `vTaskDelay(pdMS_TO_TICKS(200))` → pausa de 200 ms.
 
-  - LeerSensores: Es la función que se ejecuta en el hilo. Esta función se encarga de leer los sensores de temperatura, gas, y llama, y actualizar las variables globales (valorTemp, valorGas, hayLlama).
-  - "Sensores": Nombre asignado a la tarea para identificarla.
-  - 4096: Tamaño de la pila (stack) asignada a la tarea, en bytes. Esto determina cuánta memoria se reserva para la tarea.
-  - NULL: Parámetro que se pasa a la función leerSensores
-  - 1: Prioridad de la tarea. Un valor de 1 indica una prioridad baja (en FreeRTOS, las prioridades más altas tienen mayor precedencia).
-  - NULL: Handle de la tarea (no se guarda, ya que no se necesita manipular la tarea después de crearla).
+2. **Tarea “MQTT”**  
+   - **Creación**  
+   
+               xTaskCreate(
+                 enviarMqtt,      // función que se ejecutará en el hilo
+                 "MQTT",          // nombre de la tarea
+                 4096,            // tamaño de pila (bytes)
+                 NULL,            // parámetro de la tarea
+                 1,               // prioridad (1 = baja)
+                 NULL             // handle (no se usa)
+               );
 
- La función leerSensores se ejecuta en un bucle infinito dentro del hilo:
+   - **Función asociada**: `void enviarMqtt(void *arg)`  
+     - En bucle infinito:
+       1. Si no hay conexión, llama a `reconnect_mqtt()`.
+       2. Llama a `client.loop()` para procesar callbacks MQTT.
+       3. **Bajo mutex**: copia `valorTemp`, `valorGas`, `hayLlama`, `zumbOn` en variables locales.
+       4. Crea un JSON con telemetría y estado de alarma (`snprintf`).
+       5. Publica en `cerrosorientales/sensores` (`client.publish(...)`).
+       6. `vTaskDelay(pdMS_TO_TICKS(500))` → pausa de 500 ms.
 
-         void leerSensores(void *arg) {
-         tempSensor.begin();
-         analogReadResolution(10);
-       
-         for (;;) {
-           tempSensor.requestTemperatures();
-           float t = tempSensor.getTempCByIndex(0);
-           int g = analogRead(gasPin);
-           bool f = !digitalRead(PIN_LLAMAS);
-       
-           valorTemp = t;
-           valorGas = g;
-           hayLlama = f;
-       
-           logDatos[logPos] = {t, g, f, millis()};
-           logPos = (logPos + 1) % REG_MAX;
-           if (logCant < REG_MAX) logCant++;
-       
-           vTaskDelay(pdMS_TO_TICKS(200));
-         }
-        }
- 
-   - Inicialización: Configura el sensor de temperatura (tempSensor.begin()) y la resolución del ADC (analogReadResolution(10)).
-   - Lectura de Sensores:
-     - Lee la temperatura (tempSensor.getTempCByIndex(0)).
-     - Lee el nivel de gas (analogRead(gasPin)).
-     - Detecta la presencia de llama (digitalRead(PIN_LLAMAS)).
-   - Actualización de Variables: Actualiza las variables globales valorTemp, valorGas, y hayLlama, que son usadas por el loop() para tomar decisiones.
-   - Registro de Datos: Almacena las lecturas en el historial (logDatos), actualizando logPos y logCant.
-   - Pausa: Usa vTaskDelay(pdMS_TO_TICKS(200)) para pausar la tarea durante 200 milisegundos en cada iteración. Esto permite que otras tareas (como el loop()) se ejecuten, evitando que el hilo monopolice el procesador.
 
- **Propósito de los Hilos**
+El bucle `loop()` de Arduino no crea un hilo adicional, sino que corre en el contexto principal de FreeRTOS junto a las demás tareas.
 
- - ***Lectura Concurrente de Sensores:*** El hilo leerSensores permite que la lectura de los sensores se realice de manera independiente y concurrente con otras operaciones del sistema, como el manejo del servidor web (webServ.handleClient()) y la actualización del LCD, LED RGB, y buzzer en loop().
- - ***Evitar Bloqueos:*** Al delegar la lectura de sensores a un hilo separado, el loop() no se bloquea esperando las lecturas, lo que asegura que el sistema sea más responsivo. Por ejemplo, el servidor web puede responder a solicitudes HTTP (como /data o /history) sin interrupciones.
- - ***Actualización Periódica:*** La tarea leerSensores lee los sensores cada 200 ms, garantizando que las variables globales siempre tengan datos actualizados para que el loop() las use en la lógica de control (e.g., activar alarmas, actualizar el LCD).
- - ***Escalabilidad:*** El uso de FreeRTOS permite añadir más tareas en el futuro (e.g., una tarea para manejar actuadores o enviar datos a la nube) sin afectar el flujo principal del programa.
 
- **Funcionamiento General con Hilos:**
 
-El sistema tiene dos hilos principales que se ejecutan concurrentemente:
-
- - ***Hilo Principal (loop()):***
-   - Ejecuta el bucle principal del programa.
-   - Maneja el servidor web (webServ.handleClient()).
-   - Verifica las condiciones de alarma (saltoTemp, valorGas > GAS_MAX, valorTemp > TEMP_MAX, hayLlama).
-   - Actualiza el LCD con los valores de los sensores o mensajes de alerta ("FUEGO!", "Posible incendio!").
-   - Controla el LED RGB (pintarRGB) y el buzzer (tone/noTone) según el estado del sistema.
-   - Se ejecuta cada 10 ms (delay(10) al final del loop()), pero también comparte el procesador con otras tareas.
- - ***Hilo leerSensores:***
-   - Ejecuta la función leerSensores en un bucle infinito.
-   - Lee los sensores cada 200 ms y actualiza las variables globales.
-   - Almacena las lecturas en el historial (logDatos).
-   - Se pausa 200 ms en cada iteración para permitir que el hilo principal y otras tareas se ejecuten.
-
+### Variables volatile
 Sincronización: Las variables globales (valorTemp, valorGas, hayLlama, logDatos, etc.) son compartidas entre los hilos. Para evitar problemas de concurrencia, estas variables están marcadas como ***volatile***, lo que asegura que el compilador no optimice el acceso a ellas y que los cambios realizados por un hilo sean visibles para el otro. 
+Las siguientes variables globales están declaradas como `volatile`:
+
+- volatile float valorTemp;
+- volatile int   valorGas;
+- volatile bool  hayLlama;
+- volatile bool  zumbOn;
+- volatile bool  dispOn;
+- volatile bool  rgbOn;
+
+
+## **2.5 Uso de semaforos**
+ Se usan para proteger datos compartidos cuando varias tareas (hilos) acceden a las mismas variables, asi las funciones de leer y escribir no se ejecutan al mismo tiempo
+
+- Libreria usada: #include <freertos/semphr.h>
+
+### Declaración y Creación del Mutex
+En `setup()` creamos un mutex de tipo binario (protege secciones críticas):
+
+       SemaphoreHandle_t xMutex;
+       
+       void setup() {
+         // … otras inicializaciones …
+       
+         // Crear el mutex
+         xMutex = xSemaphoreCreateMutex();
+         if (xMutex == NULL) {
+           Serial.println("Error: no se pudo crear xMutex");
+         }
+       
+         // … crear tareas, iniciar MQTT, WebServer …
+       }
+
+- SemaphoreHandle_t: tipo de dato para almacenar el mutex.
+- xSemaphoreCreateMutex(): reserva y devuelve un mutex listo para usarse.
 
 
 
-#### **2.5 Diagramas UML**
+### Tarea de Lectura de Sensores
+
+     void leerSensores(void *arg) {
+      for (;;) {
+        float t = tempSensor.getTempCByIndex(0);
+        int   g = analogRead(gasPin);
+        bool  f = !digitalRead(PIN_LLAMAS);
+    
+        // Sección crítica: actualización de variables compartidas
+        if (xSemaphoreTake(xMutex, portMAX_DELAY)) {
+          valorTemp = t;
+          valorGas  = g;
+          hayLlama  = f;
+          // … almacenamos en logDatos[] …
+          xSemaphoreGive(xMutex);
+        }
+    
+        vTaskDelay(pdMS_TO_TICKS(200));
+      }
+    }
+
+
+Cada 200 ms el hilo de leerSensores actualiza varias variables globales (valorTemp, valorGas, hayLlama) y el buffer circular logDatos[]. Si justo en ese momento el hilo de MQTT o el callback MQTT están leyendo esas mismas variables (o escribiendo otras, como zumbOn), se pueden generar datos “mezclados” o inconsistentes (por ejemplo, una temperatura antigua con un valor de gas nuevo). El semáforo garantiza que la sección donde se escribe todo el bloque de variables sea atómica: ninguna otra tarea podrá leer o escribir hasta que termine la actualización completa.
+
+### En la Tarea de Envío MQTT
+
+       void enviarMqtt(void *arg) {
+         for (;;) {
+           if (xSemaphoreTake(xMutex, portMAX_DELAY)) {
+             float t = valorTemp;
+             int   g = valorGas;
+             bool  f = hayLlama;
+             bool  z = zumbOn;
+             xSemaphoreGive(xMutex);
+       
+             // Construir y publicar JSON con t, g, f, z …
+           }
+           vTaskDelay(pdMS_TO_TICKS(500));
+         }
+       }
+
+Antes de publicar el JSON , enviarMqtt copia bajo mutex las variables (valorTemp, valorGas, hayLlama, zumbOn) a variables locales. Sin semáforo, se podrian capturar una mezcla de valores (temperatura vieja, gas nuevo, estado de alarma intermedio). El semáforo asegura que la lectura de ese conjunto de valores sea coherente: la tarea de sensores no puede modificar nada hasta que se haya leído y enviado los datos como un bloque.
+
+### 3. En el Callback MQTT
+
+       void mqttCallback(char* topic, byte* payload, unsigned int length) {
+         if (xSemaphoreTake(xMutex, portMAX_DELAY)) {
+           if (String(topic) == topic_ctrl_buzzer) {
+             zumbOn = (msg == "ON");
+           }
+           // … otros controles …
+           xSemaphoreGive(xMutex);
+         }
+       }
+
+Cuando llega un mensaje de control (“ON”/“OFF”) para la alarma, el callback actualiza variables como zumbOn, dispOn o rgbOn. Sin protección, se podria estar en medio de un enviarMqtt o de una lectura de sensores y cambiar sólo una parte del estado, dejando memoria compartida en un estado parcial. El semáforo convierte la sección de escritura del callback en una operación indivisible, de modo que ninguna otra tarea entra a usar esas variables hasta que termines de actualizarlas todas. 
+
+### ¿Por Qué Usar Semáforos?
+
+- Evitar Condiciones de Carrera: Sin protección, una tarea podría leer una variable mientras otra la está escribiendo, llevando a valores inconsistentes o a fallas en el sistema.
+
+- Consistencia de Datos: Asegura que lecturas y escrituras de valorTemp, valorGas, hayLlama, zumbOn, etc. sean atómicas desde el punto de vista de cada tarea.
+
+- Visibilidad Inmediata: Junto con volatile, garantiza que cada tarea vea el valor más reciente de la variable en memoria.
+
+- Escalabilidad: Permite añadir más tareas futuras (p. ej. manejo de actuadores, otras comunicaciones) sin romper la integridad de los datos compartidos.
+
+
+
+## **2.6 Funcionamiento de MQTT**
+
+- Broker: servidor central que recibe mensajes de los clientes y los reenvía a quienes estén suscritos a esos tópicos.
+
+- Cliente: cualquier dispositivo (ESP32, Raspberry, dashboard Ubidots, etc.) que se conecta al broker para publicar (publish) o recibir mensajes (subscribe).
+
+- Tópico: cadena jerárquica (p. ej. "cerrosorientales/sensores") que clasifica el contenido de los mensajes.
+
+- Publish/Subscribe: los publicadores no conocen quién recibe, y los suscriptores no conocen quién publica.
+
+
+
+### Broker vs Cliente
+
+| Rol     | Descripción                                                                                                                                      |
+|---------|--------------------------------------------------------------------------------------------------------------------------------------------------|
+| **Broker**  | Servidor central que recibe mensajes de los clientes publicadores y los reenvía a los clientes suscriptores. Mantiene la lista de tópicos. |
+| **Cliente** | Dispositivo o aplicación que se conecta al broker para **publicar** mensajes (_publish_) o **recibir** mensajes (_subscribe_).               |
+
+####  ¿Quién el Broker?
+- **Mosquitto** corre en la Raspberry Pi  escuchando en el puerto 1883.  
+- Actúa como punto único de intercambio de mensajes entre ESP32, scripts Python y otros clientes.
+
+####  ¿Quiénes son los Clientes?
+1. **ESP32**  
+   - Se conecta al broker Mosquitto local para:
+     - **Publicar** telemetría (`cerrosorientales/sensores`).  
+     - **Suscribirse** a comandos de control (`cerrosorientales/control/...`).  
+2. **Script Python en Raspberry**  
+   - Cliente `local_client` que:
+     - **Se suscribe** a `cerrosorientales/sensores` (recepción de telemetría).  
+     - **Publica** a Ubidots y reenvía comandos de control de/para el ESP32.  
+3. **Dashboard Ubidots**  
+   - Cliente externo que:
+     - **Se suscribe** a tópicos `/v1.6/devices/...` para mostrar telemetría.  
+     - **Publica** en `/alarm_control/lv` para enviar comandos de control.  
+
+
+#### ¿Qué es Mosquitto?
+- Broker MQTT de código abierto 
+
+**Instalación básica**
+
+          sudo apt update
+          sudo apt install mosquitto mosquitto-clients
+          sudo systemctl enable mosquitto
+          sudo systemctl start mosquitto
+
+### MQTT en el esp32
+
+1. Publicación de telemetría
+
+Tarea FreeRTOS enviarMqtt lee cada 500 ms las variables globales (valorTemp, valorGas, hayLlama, zumbOn) bajo un mutex y hace:
+
+     client.publish("cerrosorientales/sensores", json);
+
+Cualquier cliente suscrito a ese tópico (la Raspberry) recibirá este JSON con temperatura, gas, llama y alarma.
+
+2. Suscripción a control remoto
+
+Al conectar al broker local:
+
+      client.subscribe("cerrosorientales/control/zumbon");
+
+Cuando llega un mensaje en este tópicos, mqttCallback() lo ejecuta y actualiza la variable zumbOn para encender/apagar el buzzer.
+
+3. Publicación de toggles desde la web local
+
+Cada handler de toggle:
+
+       client.publish(topic_ctrl_buzzer, zumbOn ? "ON" : "OFF");
+       
+Así el ESP32 informa al broker local cuándo el usuario hace click en su página /toggleBuzzer, lo que dispara a la Raspberry.
+
+
+### MQTT en la Raspberry (Python)
+
+1.Suscripción a telemetría local
+       
+       local_client.subscribe("cerrosorientales/sensores")
+
+on_local_message() encola cada JSON recibido para procesarlo (guardar en SQLite y reenviarlo).
+
+2. Publicación a Ubidots
+
+El hilo process_messages():
+
+      for var, topic in UBIDOTS_TOPICS.items():
+        ubidots_client.publish(topic, json.dumps({"value": valor}))
+
+Mapea temperatura, gas, llama y alarma a sus tópicos /v1.6/devices/... en Ubidots.
+
+3. Suscripción a comandos de Ubidots
+
+      ubidots_client.subscribe(UBIDOTS_CONTROL_TOPIC) 
+
+Cuando el usuario pulsa el switch en Ubidots, llega un mensaje {"value":0or1}, que on_ubidots_message() interpreta y hace:
+
+     local_client.publish("cerrosorientales/control/zumbon", "1")
+
+### Comunicación Bidireccional 
+
+**ESP32 → Broker**
+
+- El ESP32, como cliente, publica cada 500 ms un JSON en cerrosorientales/sensores.
+
+- Mosquitto reenvía ese JSON al client Python (y a cualquier otro suscriptor).
+
+**Broker → Python → Ubidots**
+
+- El script Python, suscrito a cerrosorientales/sensores, consume esos mensajes, los almacena en SQLite y los publica en Ubidots.
+
+**Ubidots → Broker**
+
+- El dashboard Ubidots publica comandos en /alarm_control/lv.
+
+- Mosquitto entrega ese mensaje al client Python.
+
+**Python → Broker → ESP32**
+
+- Python recibe el comando, lo interpreta y lo re-publica en cerrosorientales/control/zumbon (y otros tópicos de control).
+
+- El ESP32, suscrito, recibe el mensaje y ejecuta mqttCallback(), activando o desactivando buzzer, pantalla o LED RGB.
+
+**ESP32 → Broker → Python (Confirmación)**
+
+-Cuando el usuario acciona la web local del ESP32, éste publica "ON"/"OFF" en cerrosorientales/control/....
+
+- Python recibe y reenvía a Ubidots para mantener ambos dashboards sincronizados.
+
+
+## **2.7 Ubidots**
+
+.
+.
+
+
+.
+
+.
+
+.
+
+.
+
+.
+
+.
+
+.
+
+.
+
+.
+
+.
+
+## **2.8 Diagramas UML**
 1. **Diagrama de Caso de Uso**: Describe la interacción entre los usuarios y el sistema
 <p align="center">
   <img src="imagenesWiki/uso.jpg" alt="Imagen 1" width="350"/>
-  <img src="imagenesWiki/uso1.jpg" alt="Imagen 2" width="300"/>
 </p>
 
    
-2. **Diagrama de Clases**: Representación de la estructura del software.
+2.1 **Diagrama de Clases ESP32**: Representación de la estructura del software.
 
 <p align="center">
   <img src="imagenesWiki/Diagrama.png" alt="Diagrama" width="150"/>
 </p>
 
-3. **Diagrama de Secuencia**: Flujo de datos y eventos en el sistema.
+2.2 **Diagrama de Clases Python Raspberry**: Representación de la estructura del software.
+
+<p align="center">
+  <img src="imagenesWiki/Diagrama123.png" alt="Diagrama" width="150"/>
+</p>
+
+
+
+3.1 **Diagrama de Secuencia ESP32**: Flujo de datos y eventos en el sistema.
 <p align="center">
   <img src="imagenesWiki/Diagrama2.png" alt="Diagrama" width="600"/>
 </p>
    
+3.2 **Diagrama de Secuencia Python Raspberry**: Flujo de datos y eventos en el sistema.
+<p align="center">
+  <img src="imagenesWiki/Diagrama22.png" alt="Diagrama" width="600"/>
+</p>
 
-4. **Diagrama de Estados:** Estados del sistema según las condiciones detectadas.
+
+3.3 **Diagrama de Secuencia general**: 
+<p align="center">
+  <img src="imagenesWiki/Diagrama222.png" alt="Diagrama" width="600"/>
+</p>
+   
+
+
+   
+4.1 **Diagrama de Estados ESP32:** Estados del sistema según las condiciones detectadas.
 
 *Estado: Inicio*
-  - Inicializa sensores, LCD, WiFi, servidor web, y crea hilo leerSensores.
-  - Transición a → Monitoreo Normal.
-
+ -	Se ejecuta setup(): Inicializa Serial, configura pines y mutex, conecta a Wi-Fi y al broker MQTT, crea tareas FreeRTOS (leerSensores, enviarMqtt), y arranca el servidor Web.
+ -	Por qué: Preparar hardware y comunicaciones antes de entrar en el bucle principal.
+ -Después: → Monitoreo Normal
+  	
 *Estado: Monitoreo Normal*
-  - Lee sensores de temperatura, gas y llama (hilo leerSensores).
-  - Muestra valores en LCD (T: valorTemp, G: valorGas) si dispOn.
-  - LED RGB: Verde (125, 0, 255) si rgbOn.
-  - Buzzer: Apagado si zumbOn.
-  - Si valorGas > 700 || valorTemp > 30 → Transición a Detección de Gas o Temperatura Alta.
-  - Si hayLlama → Transición a Detección de Llama.
-  - Si abs(valorTemp - tempAnt) > 5 || (valorGas > 700 && valorTemp > 30) → Transición a Alarma Activada (Posible Incendio).
-
-*Estado: Detección de Gas o Temperatura Alta*
-  - Muestra valores en LCD (T: valorTemp, G: valorGas) si dispOn.
-  - LED RGB: Amarillo (0, 0, 255) si rgbOn.
-  - Buzzer: Apagado si zumbOn.
-  - Si abs(valorTemp - tempAnt) > 5 || (valorGas > 700 && valorTemp > 30) → Transición a Alarma Activada (Posible Incendio).
-  - Si hayLlama → Transición a Detección de Llama.
-  - Si valorGas <= 700 && valorTemp <= 30 → Transición a Monitoreo Normal.
-
+ -	El hilo leerSensores actualiza continuamente valorTemp, valorGas, y hayLlama.
+ -	En loop() (cada 500 ms):
+  -	Si dispOn, limpia y muestra en LCD: T: valorTemp °C y G: valorGas.
+  -	LED RGB en verde (0, 255, 0) si rgbOn.
+  -	Buzzer apagado (noTone) si zumbOn.
+ -		Por qué: Condición de funcionamiento estándar sin alertas.
+ -	Después:
+  -	Si abs(valorTemp – tempAnt) > 5 o (valorTemp > 30 && valorGas > 700) → Alarma Activada
+  -	Else if valorGas > 700 || valorTemp > 30 → Advertencia Gas/Temp Alta
+  -	Else if hayLlama → Detección de Llama
+     
+*Estado: Advertencia Gas/Temp Alta*
+  -	En LCD (si dispOn): Muestra los valores T: valorTemp y G: valorGas.
+  -	LED RGB en amarillo (255, 255, 0).
+  -	Buzzer permanece apagado.
+  -	Por qué: Uno de los sensores excede su umbral, pero aún no hay indicio de incendio ni cambio brusco.
+  -	Después:
+   -	Si ambas lecturas vuelven bajo umbral → Monitoreo Normal
+   -	Si aparece llama → Detección de Llama
+   -	Si cambio brusco o ambos sensores altos → Alarma Activada
+     
 *Estado: Detección de Llama*
-  - Muestra "FUEGO!" en LCD si dispOn.
-  - LED RGB: Rojo (0, 255, 255) si rgbOn.
-  - Buzzer: Activado (tone 1000 Hz) si zumbOn.
-  - alertaActiva = true.
-  - Transición inmediata a → Alarma Activada.
-
+ -	En LCD (si dispOn): Muestra "FUEGO!" y G: valorGas.
+ -	LED RGB en rojo (255, 0, 0).
+ -	Buzzer suena (tone) si zumbOn.
+ -	Por qué: El sensor de llama detecta fuego directo.
+ -	Después:
+  -	Si deja de detectarse llama → Monitoreo Normal
+  -	Si además hay cambio brusco o sensores altos → Alarma Activada
+     
 *Estado: Alarma Activada (Posible Incendio)*
-  - Muestra "Posible incendio!" en LCD si dispOn.
-  - LED RGB: Rojo (0, 125, 255) si rgbOn.
-  - Buzzer: Activado (tone 1000 Hz) si zumbOn.
-  - alertaActiva = true.
-  - Si hayLlama → Transición a Detección de Llama.
-  - Si !hayLlama && valorGas <= 700 && valorTemp <= 30 && !saltoTemp → Transición a Alarma Desactivada.
+  -	En LCD (si dispOn): Muestra "Posible incendio!" y G: valorGas.
+  -	LED RGB en rojo intenso (255, 0, 0).
+  -	Buzzer suena ininterrumpidamente si zumbOn.
+  -	Por qué: Se detecta un cambio brusco de temperatura o ambos sensores exceden su umbral simultáneamente.
+  -	Después:
+   -	Cuando abs(valorTemp – tempAnt) ≤ 5 y valorTemp ≤ 30 y valorGas ≤ 700 y !hayLlama → Monitoreo Normal
+   -	Al salir, tempAnt se actualiza para futuras comparaciones.
+     
+*Eventos de Control Externo (Aplicable en Todos los Estados)*
+  -	Evento: Toggle Buzzer (MQTT o Web):
+   -	Si se recibe mensaje en "cerrosorientales/control/zumbon" ("ON" o "OFF") o se llama a /toggleBuzzer:
+    -	Actualiza zumbOn.
+    -	Si zumbOn es false, noTone(zumbPin).
+    -	Si se togguea vía web, publica nuevo *Estado a "cerrosorientales/control/zumbon".
+  -	Evento: Toggle Display (MQTT o Web):
+   -	Si se recibe mensaje en "cerrosorientales/control/dispon" o se llama a /toggleLCD:
+    -	Actualiza dispOn.
+    -	Si dispOn es true, display.backlight(); else display.noBacklight().
+  -	Evento: Toggle RGB (MQTT o Web):
+   -	Si se recibe mensaje en "cerrosorientales/control/rgbon" o se llama a /toggleRGB:
+    -	Actualiza rgbOn.
+    -	Si rgbOn es false, pintarRGB(0, 0, 0).
+  -	Evento: Reset Log (Web):
+   -	Si se llama a /resetLog:
+    -	Limpia el log: logPos = 0, logCant = 0.
 
-*Estado: Alarma Activada*
-  - Estado general para alertaActiva = true (causado por Detección de Llama o Alarma Activada (Posible Incendio)).
-  - Si !hayLlama && valorGas <= 700 && valorTemp <= 30 && !saltoTemp → Transición a Alarma Desactivada.
+*Aplicable en Todos los Estados*
+  -	Publicación MQTT:
+   -	Cada 500 ms, el hilo enviarMqtt:
+ 	  - Lee valorTemp, valorGas, hayLlama, zumbOn.
+    - Publica a "cerrosorientales/sensores" como {"temperatura":..., "gas":..., "llama":..., "alarma":...}.
+  -	Por qué: Permite a sistemas externos (e.g., Raspberry Pi) recibir datos de sensores.
 
-*Estado: Alarma Desactivada*
-  - Apaga buzzer (noTone) si zumbOn.
-  - Ajusta LED RGB según estado (Verde o Amarillo) si rgbOn.
-  - alertaActiva = false.
-  - Si valorGas <= 700 && valorTemp <= 30 → Transición a Monitoreo Normal.
-  - Si valorGas > 700 || valorTemp > 30 → Transición a Detección de Gas o Temperatura Alta.
 
-#### **2.5 Estándares de Diseño Aplicados**
-La tecnología **Wi-Fi** se basa en la serie de estándares de conectividad inalámbrica **IEEE 802.11™**, los cuales han revolucionado la forma en que nos comunicamos y accedemos a la información [7].  
-En este código, se usa a través de la biblioteca `WiFi.h`, que permite conectar el **ESP32** a una red WiFi.
+4.2 **Diagrama de Estados Python Raspberry:** Estados del sistema según las condiciones detectadas.
 
-**¿Cómo se usa el protocolo IEEE 802.11 y HTTP?**
+*Estado: Inicio*
+  -	Se ejecuta el bloque if __name__ == "__main__"::
+  -	Verifica/crea la tabla SQLite (datos) con columnas: timestamp, temperatura, gas, llama, alarma.
+  -	Arranca el hilo demonio process_messages.
+  -	Lanza start_mqtt_clients():
+  -	Conecta local_mqtt_client a localhost:1883, asigna callbacks on_connect y on_message.
+  -	Conecta ubidots_mqtt_client a industrial.api.ubidots.com:1883, asigna credenciales y callbacks.
+  -	Inicia bucles con loop_start() para ambos clientes.
+  -	Por qué: Preparar la base de datos y conectar ambos clientes MQTT antes de procesar datos.
+  -	Después: → *Estados concurrentes Espera de Mensajes Local, Espera de Mensajes Ubidots, y Loop Principal
 
-El protocolo **IEEE 802.11** define los estándares para redes WiFi, y en este código se emplea para:
+*Estado: Espera de Mensajes Local*
+  -	local_mqtt_client.loop_start() atiende mensajes entrantes en cerrosorientales/sensores.
+  -	En on_local_connect:
+  -	Suscribe a cerrosorientales/sensores al conectar.
+  -	Registra éxito o falla en el log.
+  -	El callback on_local_message:
+  -	Decodifica el payload (JSON string).
+  -	Encola el mensaje en message_queue.
+  -	Registra el evento en el log.
+  -	Maneja errores de decodificación.
+  -	Por qué: Permanecer escuchando telemetría enviada por el ESP32.
+  -	Después: Al encolar → Procesar Mensaje
 
-- **Conectar el ESP32 a una red WiFi**  
-  - Se utiliza `WiFi.begin(redNombre, redClave);` en el `setup()`, lo que permite la autenticación con una red **WiFi de 2.4 GHz**.
-  - `WiFi.status()` verifica que la conexión se haya establecido correctamente.
-  - `WiFi.localIP()` imprime la dirección **IP asignada** al ESP32 en la red.
+*Estado: Procesar Mensaje*
+  -	El hilo process_messages realiza payload = message_queue.get() (bloquea hasta haber mensaje).
+  -	Parsea el JSON y extrae temperatura, gas, llama, alarma.
+  -	Llama a save_to_db(...) para insertar en SQLite, con manejo de errores.
+  -	Publica cada variable en Ubidots con ubidots_mqtt_client.publish(...) a los topics correspondientes (temperatura, gas, llama, alarma).
+  -	Registra cada acción (guardado y publicación) en el log.
+  -	Llama a message_queue.task_done() para marcar la tarea como completada.
+  -	Por qué: Almacenar localmente y reenviar telemetría a Ubidots.
+  -	Después: → Retorna a Espera de Mensajes Local
 
-- **Implementar un Servidor Web**  
-  - Se usa la biblioteca `WebServer.h`, que actúa como un servidor **HTTP** sobre la red WiFi.
-  - Permite que los clientes (por ejemplo, navegadores web) accedan a la página de control del sistema mediante **peticiones HTTP**:  
-    ```cpp
-    webServ.on("/", HTTP_GET, pagInicio);
-    ```
+*Estado: Espera de Mensajes Ubidots*
+  -	ubidots_mqtt_client.loop_start() atiende mensajes en /v1.6/devices/raspi/alarm_control/lv.
+  -	En on_ubidots_connect:
+  -	Suscribe a /v1.6/devices/raspi/alarm_control/lv al conectar.
+  -	Registra éxito o falla en el log.
+  -	El callback on_ubidots_message:
+  -	Decodifica el payload y convierte a float.
+  -	Determina el *Estado: "ON" si el valor es 1, "OFF" si es 0.
+  -	Publica "ON"/"OFF" en cerrosorientales/control/zumbon usando local_mqtt_client.
+  -	Registra el evento en el log.
+  -	Maneja errores de decodificación.
+  -	Por qué: Recibir comandos del dashboard Ubidots para el buzzer del ESP32.
+  -	Después: → Retorna a Espera de Mensajes Ubidots
 
-- **Enviar y recibir datos a través de HTTP**  
-  - El ESP32 envía información de los sensores en formato **JSON**:  
-    ```cpp
-    webServ.on("/data", HTTP_GET, enviarEstado);
-    ```
-  - También responde a **comandos de los usuarios** para activar/desactivar componentes como el zumbador, la pantalla LCD y el LED RGB:  
-    ```cpp
-    webServ.on("/toggleBuzzer", HTTP_GET, alternarZumb);
-    ```
+*Estado: Loop Principal*
+  -	En el hilo principal, bucle infinito con while True:
+  -	Cada 10 s imprime Mensajes en cola: {message_queue.qsize()}.
+  -	Por qué: Ofrecer un “heartbeat” de actividad y monitoreo de la cola de trabajo.
+  -	Después: → Repite Loop Principal continuamente
 
-#### **2.6 Estándares de Diseño Aplicados**
+*Evento: Terminación (KeyboardInterrupt)*
+  -	Aplicable en: Cualquier Estado, típicamente detectado en Loop Principal.
+  -	Acciones:
+  -	Detiene los bucles de los clientes MQTT: local_mqtt_client.loop_stop(), ubidots_mqtt_client.loop_stop().
+  -Desconecta los clientes: local_mqtt_client.disconnect(), ubidots_mqtt_client.disconnect().
+  -	Registra "Script finalizado" en el log.
+  -	Por qué: Garantizar un cierre limpio del programa al ser interrumpido por el usuario.
+  -	Después: → Fin del programa.
+
+.
+.
+
+
+.
+
+.
+
+..
+
+.
+
+.
+
+.
+
+.
+
+.
+
+
+.
+
+.
+
+
+
+
+
+#### **2.9 Estándares de Diseño Aplicados**
 
 **1. Diseño Modular**  
 - Se basa en el principio de **separación de preocupaciones** (*Separation of Concerns*), que facilita la escalabilidad y mantenimiento del código.  
