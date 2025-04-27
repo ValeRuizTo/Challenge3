@@ -559,38 +559,38 @@ Cuando el usuario pulsa el switch en Ubidots, llega un mensaje {"value":0or1}, q
 ## **2.8 Diagramas UML**
 1. **Diagrama de Caso de Uso**: Describe la interacción entre los usuarios y el sistema
 <p align="center">
-  <img src="imagenesWiki/uso.jpg" alt="Imagen 1" width="350"/>
+  <img src="imagenesWiki/uso.jpg" />
 </p>
 
    
 2.1 **Diagrama de Clases ESP32**: Representación de la estructura del software.
 
 <p align="center">
-  <img src="imagenesWiki/Diagrama.png" alt="Diagrama" width="150"/>
+  <img src="imagenesWiki/Diagrama.png" />
 </p>
 
 2.2 **Diagrama de Clases Python Raspberry**: Representación de la estructura del software.
 
 <p align="center">
-  <img src="imagenesWiki/Diagrama123.png" alt="Diagrama" width="150"/>
+  <img src="imagenesWiki/Diagrama123.jpg" />
 </p>
 
 
 
 3.1 **Diagrama de Secuencia ESP32**: Flujo de datos y eventos en el sistema.
 <p align="center">
-  <img src="imagenesWiki/Diagrama2.png" alt="Diagrama" width="600"/>
+  <img src="imagenesWiki/Diagrama2.png"/>
 </p>
    
 3.2 **Diagrama de Secuencia Python Raspberry**: Flujo de datos y eventos en el sistema.
 <p align="center">
-  <img src="imagenesWiki/Diagrama22.png" alt="Diagrama" width="600"/>
+  <img src="imagenesWiki/Diagrama22.jpg" />
 </p>
 
 
 3.3 **Diagrama de Secuencia general**: 
 <p align="center">
-  <img src="imagenesWiki/Diagrama222.png" alt="Diagrama" width="600"/>
+  <img src="imagenesWiki/Diagrama222.jpg" />
 </p>
    
 
