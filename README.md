@@ -616,16 +616,12 @@ Para que el dashboard Ubidots pueda activar/desactivar el buzzer del ESP32:
 1. Raspberry Pi publica en MQTT Ubidots.
 
 2. Ubidots Cloud recibe y visualiza:
-
- - Gráficos de línea para tendencias.
-
- - Indicadores de valor actual.
-
- - Alertas configurables (email, SMS, webhook).
+   - Gráficos de línea para tendencias.
+   - Indicadores de valor actual.
+   - Alertas configurables (email, SMS, webhook).
 
 3. Operador puede interactuar con el dashboard:
-
- - Desactivar buzzer (publica en /alarm_control/lv).
+   - Desactivar buzzer (publica en `/alarm_control/lv`).
 
 
 
@@ -671,142 +667,155 @@ Para que el dashboard Ubidots pueda activar/desactivar el buzzer del ESP32:
    
 4.1 **Diagrama de Estados ESP32:** Estados del sistema según las condiciones detectadas.
 
-*Estado: Inicio*
- -	Se ejecuta setup(): Inicializa Serial, configura pines y mutex, conecta a Wi-Fi y al broker MQTT, crea tareas FreeRTOS (leerSensores, enviarMqtt), y arranca el servidor Web.
- -	Por qué: Preparar hardware y comunicaciones antes de entrar en el bucle principal.
- - ***Después: → Monitoreo Normal***
-  	
-*Estado: Monitoreo Normal*
- -	El hilo leerSensores actualiza continuamente valorTemp, valorGas, y hayLlama.
- -	En loop() (cada 500 ms):
-  -	Si dispOn, limpia y muestra en LCD: T: valorTemp °C y G: valorGas.
-  -	LED RGB en verde (0, 255, 0) si rgbOn.
-  -	Buzzer apagado (noTone) si zumbOn.
- -		Por qué: Condición de funcionamiento estándar sin alertas.
- -	Después:
-  -	Si abs(valorTemp – tempAnt) > 5 o (valorTemp > 30 && valorGas > 700) → Alarma Activada
-  -	Else if valorGas > 700 || valorTemp > 30 → Advertencia Gas/Temp Alta
-  -	Else if hayLlama → Detección de Llama
-     
-*Estado: Advertencia Gas/Temp Alta*
-  -	En LCD (si dispOn): Muestra los valores T: valorTemp y G: valorGas.
-  -	LED RGB en amarillo (255, 255, 0).
-  -	Buzzer permanece apagado.
-  -	Por qué: Uno de los sensores excede su umbral, pero aún no hay indicio de incendio ni cambio brusco.
-  -	Después:
-   -	Si ambas lecturas vuelven bajo umbral → Monitoreo Normal
-   -	Si aparece llama → Detección de Llama
-   -	Si cambio brusco o ambos sensores altos → Alarma Activada
-     
-*Estado: Detección de Llama*
- -	En LCD (si dispOn): Muestra "FUEGO!" y G: valorGas.
- -	LED RGB en rojo (255, 0, 0).
- -	Buzzer suena (tone) si zumbOn.
- -	Por qué: El sensor de llama detecta fuego directo.
- -	Después:
-  -	Si deja de detectarse llama → Monitoreo Normal
-  -	Si además hay cambio brusco o sensores altos → Alarma Activada
-     
-*Estado: Alarma Activada (Posible Incendio)*
-  -	En LCD (si dispOn): Muestra "Posible incendio!" y G: valorGas.
-  -	LED RGB en rojo intenso (255, 0, 0).
-  -	Buzzer suena ininterrumpidamente si zumbOn.
-  -	Por qué: Se detecta un cambio brusco de temperatura o ambos sensores exceden su umbral simultáneamente.
-  -	Después:
-   -	Cuando abs(valorTemp – tempAnt) ≤ 5 y valorTemp ≤ 30 y valorGas ≤ 700 y !hayLlama → Monitoreo Normal
-   -	Al salir, tempAnt se actualiza para futuras comparaciones.
-     
-*Eventos de Control Externo (Aplicable en Todos los Estados)*
-  -	Evento: Toggle Buzzer (MQTT o Web):
-   -	Si se recibe mensaje en "cerrosorientales/control/zumbon" ("ON" o "OFF") o se llama a /toggleBuzzer:
-    -	Actualiza zumbOn.
-    -	Si zumbOn es false, noTone(zumbPin).
-    -	Si se togguea vía web, publica nuevo *Estado a "cerrosorientales/control/zumbon".
-  -	Evento: Toggle Display (MQTT o Web):
-   -	Si se recibe mensaje en "cerrosorientales/control/dispon" o se llama a /toggleLCD:
-    -	Actualiza dispOn.
-    -	Si dispOn es true, display.backlight(); else display.noBacklight().
-  -	Evento: Toggle RGB (MQTT o Web):
-   -	Si se recibe mensaje en "cerrosorientales/control/rgbon" o se llama a /toggleRGB:
-    -	Actualiza rgbOn.
-    -	Si rgbOn es false, pintarRGB(0, 0, 0).
-  -	Evento: Reset Log (Web):
-   -	Si se llama a /resetLog:
-    -	Limpia el log: logPos = 0, logCant = 0.
+*Estado: Inicio*  
+- Se ejecuta `setup()`: inicializa Serial, configura pines y mutex, conecta a Wi-Fi y al broker MQTT, crea tareas FreeRTOS (`leerSensores`, `enviarMqtt`) y arranca el servidor Web.  
+- **Por qué:** preparar hardware y comunicaciones antes de entrar en el bucle principal.  
+- **Después:** → **Monitoreo Normal**  
 
-*Aplicable en Todos los Estados*
-  -	Publicación MQTT:
-   -	Cada 500 ms, el hilo enviarMqtt:
- 	  - Lee valorTemp, valorGas, hayLlama, zumbOn.
-    - Publica a "cerrosorientales/sensores" como {"temperatura":..., "gas":..., "llama":..., "alarma":...}.
-  -	Por qué: Permite a sistemas externos (e.g., Raspberry Pi) recibir datos de sensores.
+ *Estado: Monitoreo Normal*  
+- El hilo `leerSensores` actualiza continuamente `valorTemp`, `valorGas` y `hayLlama`.  
+- En `loop()` (cada 500 ms):  
+  - Si `dispOn`, limpia y muestra en LCD: `T: valorTemp °C` y `G: valorGas`.  
+  - LED RGB en verde `(0, 255, 0)` si `rgbOn`.  
+  - Buzzer apagado (`noTone`) si `zumbOn`.  
+- **Por qué:** Condición de funcionamiento estándar sin alertas.  
+- **Después:**  
+  - Si `abs(valorTemp – tempAnt) > 5` o `(valorTemp > 30 && valorGas > 700)` → **Alarma Activada**  
+  - Else if `valorGas > 700 || valorTemp > 30` → **Advertencia Gas/Temp Alta**  
+  - Else if `hayLlama` → **Detección de Llama**  
+
+     
+*Estado: Advertencia Gas/Temp Alta*  
+- En LCD (si `dispOn`): muestra los valores `T: valorTemp` y `G: valorGas`.  
+- LED RGB en amarillo `(255, 255, 0)`.  
+- Buzzer permanece apagado.  
+- **Por qué:** uno de los sensores excede su umbral, pero aún no hay indicio de incendio ni cambio brusco.  
+- **Después:**  
+  - Si ambas lecturas vuelven bajo umbral → **Monitoreo Normal**  
+  - Si aparece llama → **Detección de Llama**  
+  - Si cambio brusco o ambos sensores altos → **Alarma Activada**  
+
+     
+*Estado: Detección de Llama*  
+- En LCD (si `dispOn`): muestra `"FUEGO!"` y `G: valorGas`.  
+- LED RGB en rojo `(255, 0, 0)`.  
+- Buzzer suena (`tone`) si `zumbOn`.  
+- **Por qué:** el sensor de llama detecta fuego directo.  
+- **Después:**  
+  - Si deja de detectarse llama → **Monitoreo Normal**  
+  - Si además hay cambio brusco o sensores altos → **Alarma Activada**  
+
+     
+*Estado: Alarma Activada (Posible Incendio)*  
+- En LCD (si `dispOn`): muestra `"Posible incendio!"` y `G: valorGas`.  
+- LED RGB en rojo intenso `(255, 0, 0)`.  
+- Buzzer suena ininterrumpidamente si `zumbOn`.  
+- **Por qué:** se detecta un cambio brusco de temperatura o ambos sensores exceden su umbral simultáneamente.  
+- **Después:**  
+  - Cuando abs(valorTemp – tempAnt) ≤ 5 y valorTemp ≤ 30 y valorGas ≤ 700 y !hayLlama → **Monitoreo Normal**
+  - Al salir, tempAnt se actualiza para futuras comparaciones.
+     
+
+*Eventos de Control Externo (Aplicable en Todos los Estados)*  
+- **Toggle Buzzer (MQTT o Web):**  
+  - Si llega mensaje en  
+    `"cerrosorientales/control/zumbon"` (`"ON"`/`"OFF"`)  
+    o se llama a `/toggleBuzzer`:  
+    - Actualiza `zumbOn`.  
+    - Si `zumbOn == false`, llama `noTone(zumbPin)`.  
+    - Si viene de la Web, publica nuevo estado en  
+      `"cerrosorientales/control/zumbon"`.  
+
+- **Toggle Display (MQTT o Web):**  
+  - Si llega mensaje en  
+    `"cerrosorientales/control/dispon"`  
+    o se llama a `/toggleLCD`:  
+    - Actualiza `dispOn`.  
+    - Si `dispOn == true`, llama `display.backlight()`;  
+      else `display.noBacklight()`.  
+
+- **Toggle RGB (MQTT o Web):**  
+  - Si llega mensaje en  
+    `"cerrosorientales/control/rgbon"`  
+    o se llama a `/toggleRGB`:  
+    - Actualiza `rgbOn`.  
+    - Si `rgbOn == false`, llama `pintarRGB(0, 0, 0)`.  
+
+- **Reset Log (Web):**  
+  - Si se llama a `/resetLog`:  
+    - Limpia el log: logPos = 0, logCant = 0.
+      
+*Aplicable en Todos los Estados*  
+- **Publicación MQTT:**  
+  - Cada 500 ms, el hilo `enviarMqtt`:  
+    - Lee `valorTemp`, `valorGas`, `hayLlama`, `zumbOn` (bajo mutex).  
+    - Publica en `"cerrosorientales/sensores"` el JSON  
+      `{"temperatura":…, "gas":…, "llama":…, "alarma":…}`.  
+- **Por qué:** permite que sistemas externos (p. ej. Raspberry Pi) reciban y procesen la telemetría de sensores.  
+
 
 
 4.2 **Diagrama de Estados Python Raspberry:** Estados del sistema según las condiciones detectadas.
 
-*Estado: Inicio*
-  -	Se ejecuta el bloque if __name__ == "__main__"::
-  -	Verifica/crea la tabla SQLite (datos) con columnas: timestamp, temperatura, gas, llama, alarma.
-  -	Arranca el hilo demonio process_messages.
-  -	Lanza start_mqtt_clients():
-  -	Conecta local_mqtt_client a localhost:1883, asigna callbacks on_connect y on_message.
-  -	Conecta ubidots_mqtt_client a industrial.api.ubidots.com:1883, asigna credenciales y callbacks.
-  -	Inicia bucles con loop_start() para ambos clientes.
-  -	Por qué: Preparar la base de datos y conectar ambos clientes MQTT antes de procesar datos.
-  -	Después: → *Estados concurrentes Espera de Mensajes Local, Espera de Mensajes Ubidots, y Loop Principal
+*Estado: Inicio*  
+- Se ejecuta el bloque `if __name__ == "__main__":`  
+  - Verifica/crea la tabla SQLite (`datos`) con columnas: `timestamp`, `temperatura`, `gas`, `llama`, `alarma`.  
+  - Arranca el hilo demonio `process_messages`.  
+  - Lanza `start_mqtt_clients()`:  
+    - Conecta `local_mqtt_client` a `localhost:1883`, asigna callbacks `on_local_connect` y `on_local_message`.  
+    - Conecta `ubidots_mqtt_client` a `industrial.api.ubidots.com:1883`, asigna token y callbacks `on_ubidots_connect` y `on_ubidots_message`.  
+    - Inicia bucles con `loop_start()` para ambos clientes.  
+- **Por qué:** preparar la base de datos y conectar ambos clientes MQTT antes de procesar datos.  
+- **Después:** → estados concurrentes **Espera de Mensajes Local**, **Espera de Mensajes Ubidots** y **Loop Principal**  
 
-*Estado: Espera de Mensajes Local*
-  -	local_mqtt_client.loop_start() atiende mensajes entrantes en cerrosorientales/sensores.
-  -	En on_local_connect:
-  -	Suscribe a cerrosorientales/sensores al conectar.
-  -	Registra éxito o falla en el log.
-  -	El callback on_local_message:
-  -	Decodifica el payload (JSON string).
-  -	Encola el mensaje en message_queue.
-  -	Registra el evento en el log.
-  -	Maneja errores de decodificación.
-  -	Por qué: Permanecer escuchando telemetría enviada por el ESP32.
-  -	Después: Al encolar → Procesar Mensaje
+*Estado: Espera de Mensajes Local*  
+- `local_mqtt_client.loop_start()` atiende mensajes en `cerrosorientales/sensores`.  
+- **on_local_connect:**  
+  - Se suscribe a `cerrosorientales/sensores` al conectar.  
+  - Registra éxito o falla en el log.  
+- **on_local_message:**  
+  - Decodifica el payload (JSON string).  
+  - Encola el mensaje en `message_queue`.  
+  - Registra el evento en el log; maneja errores de decodificación.  
+- **Por qué:** permanecer escuchando telemetría enviada por el ESP32.  
+- **Después:** al encolar → **Procesar Mensaje**  
 
-*Estado: Procesar Mensaje*
-  -	El hilo process_messages realiza payload = message_queue.get() (bloquea hasta haber mensaje).
-  -	Parsea el JSON y extrae temperatura, gas, llama, alarma.
-  -	Llama a save_to_db(...) para insertar en SQLite, con manejo de errores.
-  -	Publica cada variable en Ubidots con ubidots_mqtt_client.publish(...) a los topics correspondientes (temperatura, gas, llama, alarma).
-  -	Registra cada acción (guardado y publicación) en el log.
-  -	Llama a message_queue.task_done() para marcar la tarea como completada.
-  -	Por qué: Almacenar localmente y reenviar telemetría a Ubidots.
-  -	Después: → Retorna a Espera de Mensajes Local
+*Estado: Procesar Mensaje*  
+- El hilo `process_messages` hace `payload = message_queue.get()` (bloquea hasta haber mensaje).  
+- Parsea el JSON y extrae `temperatura`, `gas`, `llama`, `alarma`.  
+- Llama a `save_to_db(...)` para insertar en SQLite, con manejo de errores.  
+- Publica cada variable en Ubidots con `ubidots_mqtt_client.publish(...)` a los tópicos de `UBIDOTS_TOPICS`.  
+- Registra guardado y publicación en el log, luego `message_queue.task_done()`.  
+- **Por qué:** almacenar localmente y reenviar telemetría a Ubidots.  
+- **Después:** → retorna a **Espera de Mensajes Local**  
 
-*Estado: Espera de Mensajes Ubidots*
-  -	ubidots_mqtt_client.loop_start() atiende mensajes en /v1.6/devices/raspi/alarm_control/lv.
-  -	En on_ubidots_connect:
-  -	Suscribe a /v1.6/devices/raspi/alarm_control/lv al conectar.
-  -	Registra éxito o falla en el log.
-  -	El callback on_ubidots_message:
-  -	Decodifica el payload y convierte a float.
-  -	Determina el *Estado: "ON" si el valor es 1, "OFF" si es 0.
-  -	Publica "ON"/"OFF" en cerrosorientales/control/zumbon usando local_mqtt_client.
-  -	Registra el evento en el log.
-  -	Maneja errores de decodificación.
-  -	Por qué: Recibir comandos del dashboard Ubidots para el buzzer del ESP32.
-  -	Después: → Retorna a Espera de Mensajes Ubidots
+*Estado: Espera de Mensajes Ubidots*  
+- `ubidots_mqtt_client.loop_start()` atiende mensajes en `/v1.6/devices/raspi/alarm_control/lv`.  
+- **on_ubidots_connect:**  
+  - Se suscribe a `/v1.6/devices/raspi/alarm_control/lv` al conectar.  
+  - Registra éxito o falla en el log.  
+- **on_ubidots_message:**  
+  - Decodifica el payload y lo convierte a float.  
+  - Determina `state = "ON"` si valor == 1, `"OFF"` si 0.  
+  - Publica `state` en `cerrosorientales/control/zumbon` usando `local_mqtt_client`.  
+  - Registra el evento en el log; maneja errores de decodificación.  
+- **Por qué:** recibir comandos del dashboard Ubidots para el buzzer del ESP32.  
+- **Después:** → retorna a **Espera de Mensajes Ubidots**  
 
-*Estado: Loop Principal*
-  -	En el hilo principal, bucle infinito con while True:
-  -	Cada 10 s imprime Mensajes en cola: {message_queue.qsize()}.
-  -	Por qué: Ofrecer un “heartbeat” de actividad y monitoreo de la cola de trabajo.
-  -	Después: → Repite Loop Principal continuamente
+*Estado: Loop Principal*  
+- En el hilo principal, bucle infinito `while True`:  
+  - Cada 10 s imprime `Mensajes en cola: {message_queue.qsize()}`.  
+- **Por qué:** ofrecer un “heartbeat” de actividad y monitoreo de la cola de trabajo.  
+- **Después:** → repite **Loop Principal** continuamente  
 
-*Evento: Terminación (KeyboardInterrupt)*
-  -	Aplicable en: Cualquier Estado, típicamente detectado en Loop Principal.
-  -	Acciones:
-  -	Detiene los bucles de los clientes MQTT: local_mqtt_client.loop_stop(), ubidots_mqtt_client.loop_stop().
-  -Desconecta los clientes: local_mqtt_client.disconnect(), ubidots_mqtt_client.disconnect().
-  -	Registra "Script finalizado" en el log.
-  -	Por qué: Garantizar un cierre limpio del programa al ser interrumpido por el usuario.
-  -	Después: → Fin del programa.
-
+*Evento: Terminación (KeyboardInterrupt)*  
+- **Aplicable en cualquier estado**, típicamente en **Loop Principal**.  
+- Acciones:  
+  - `local_mqtt_client.loop_stop()`, `ubidots_mqtt_client.loop_stop()`.  
+  - `local_mqtt_client.disconnect()`, `ubidots_mqtt_client.disconnect()`.  
+  - Registra `"Script finalizado"` en el log.  
+- **Por qué:** garantizar un cierre limpio al interrumpir el programa.  
+- **Después:** → fin del programa.  
 
 
 
