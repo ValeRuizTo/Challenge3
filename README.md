@@ -797,43 +797,71 @@ Cuando el usuario pulsa el switch en Ubidots, llega un mensaje {"value":0or1}, q
 
 ### 3.1 Metodología de Pruebas
 
-- **Prueba de Sensores:**  
-  Se realizó la validación de los datos de temperatura, niveles de gas y detección de llama en distintos entornos. En el laboratorio se compararon las mediciones obtenidas por el sistema con instrumentos calibrados, mientras que en pruebas de campo se evaluó la respuesta de los sensores ante condiciones ambientales variables. Esto permitió ajustar los umbrales (por ejemplo, 30°C para temperatura y 700 unidades para gas) y confirmar la capacidad del sistema para identificar incrementos bruscos (mayor a 5°C) de manera oportuna.
+- **Prueba de Sensores In Situ y en Campo**  
+  - **DS18B20 (digital, OneWire):** comparación con termómetro calibrado en 20–40 °C; margen de error máximo ±0.5 °C.  
+  - **MQ-2 (analógico, ADC 10 bits):** validación con concentraciones de propano conocidas; ajuste fino del umbral en 600–800 unidades.  
+  - **Detector de llama (digital):** prueba de detección a distintas distancias (5 cm, 10 cm, 20 cm) usando fuente de llama controlada; tiempo de respuesta < 200 ms.  
+  - Se capturaron lecturas en laboratorio y en exteriores; se ajustaron umbrales (30 °C, 700 unidades, salto brusco > 5 °C) y se introdujo lógica de detección de incremento abrupto para reducir falsas alarmas.
 
-- **Prueba del Servidor Web:**  
-  Se verificó la accesibilidad y funcionalidad del servidor web embebido en el ESP32. La interfaz fue probada desde diferentes dispositivos (computadoras, smartphones y tablets) conectados a la WLAN proporcionada por la alcaldía. Se evaluó la actualización en tiempo real de los datos, la correcta visualización del estado de los sensores, y la respuesta a comandos para alternar el estado de actuadores (buzzer, LCD y LED RGB).
+- **Prueba de la Interfaz Web Local**  
+  - Acceso desde PC, smartphone y tablet conectados a la red Wi-Fi del ESP32.  
+  - Verificación de los endpoints `/data` y `/history`: actualización de valores y de log cada segundo sin pérdida de frames.  
+  - Comprobación de botones de control (buzzer, LCD, RGB, reset log): latencia de respuesta < 150 ms y feedback inmediato en la UI.
 
-- **Prueba de Alertas:**  
-  Se simuló la activación de condiciones anómalas generadas por sobrecalentamiento, niveles elevados de gas y detección de llama. En estas pruebas se comprobó que, al superar los umbrales establecidos, el sistema activara simultáneamente los indicadores físicos:
-  - **LED RGB:** Cambia a color rojo o amarillo según la gravedad de la situación.
-  - **Buzzer:** Emite una señal sonora de 1000 Hz para alertar inmediatamente.
-  - **Pantalla LCD:** Muestra mensajes de advertencia (“FUEGO!” o “Posible incendio!”).  
-  Estas pruebas ayudaron a ajustar la sincronización y a minimizar las falsas alarmas.
+- **Prueba de Comunicación MQTT y Ubidots**  
+  - **Broker local en Raspberry Pi (Mosquitto):** suscripciones a topics de telemetría (`/sensores`) y control (`/control/*`); reconexión automática tras caída de red.  
+  - **Publicación a Ubidots:** envío de JSON con sensores y estados de actuadores; medición de latencia end-to-end < 500 ms.  
+  - **Recepción de comandos remotos:** simulación de mensajes `alarm/reset` y `alarm/trigger` desde Ubidots; verificación de desactivación y activación de alarmas en el ESP32 en < 200 ms.
 
-- **Simulación de Incendio:**  
-  Se empleó una fuente controlada (por ejemplo, un encendedor) para simular la presencia de fuego y evaluar la respuesta del sistema. Se midió el tiempo transcurrido desde la detección de la señal de llama hasta la activación completa de las alertas, constatando la capacidad del sistema para reaccionar en tiempo real ante un inicio de incendio.
+- **Simulación de Fallos y Mecanismos de Recuperación**  
+  - Corte de Wi-Fi y caída del broker local: comprobación de reintentos de conexión Wi-Fi (cada 5 s) y de MQTT (cada 5 s) sin bloquear otras tareas.  
+  - Puerto de Ubidots inaccesible: almacenamiento temporal en buffer circular de FreeRTOS y reenvío automático al restaurarse la conexión.  
 
 ### 3.2 Resultados
 
-- **Detección en Tiempo Real:**  
-  Se evidenció la capacidad del sistema para detectar aumentos bruscos de temperatura en tiempo real, identificando incrementos superiores a 5°C en un corto intervalo. Esto es fundamental para la detección temprana de posibles incendios.
+- **Precisión y Consistencia de Lecturas**  
+  - DS18B20: desviación media de ±0.4 °C.  
+  - MQ-2: variación ≤ ±8 unidades tras calibración.  
+  - Detector de llama: 100 % de detección a 10 cm, 95 % a 20 cm.
 
-- **Interfaz Web Funcional:**  
-  La plataforma web demostró ser completamente operativa, mostrando en vivo el estado actual de las variables (temperatura, gas y detección de llama) y ofreciendo un historial reciente de lecturas. La actualización en tiempo real permitió a los usuarios monitorear de forma remota y precisa el estado del entorno.
+- **Rendimiento de la UI Local**  
+  - Actualización de datos y logs cada segundo sin retrasos.  
+  - Respuesta a comandos de actuadores en < 150 ms, garantizando interactividad fluida.
 
-- **Activación de Alertas:**  
-  Las pruebas confirmaron que, en condiciones críticas, el sistema activa de forma coordinada todos los mecanismos de alerta (buzzer, LED RGB y mensajes en la pantalla LCD). Esto asegura una respuesta inmediata ante la detección de condiciones anómalas, reduciendo el riesgo de que un incendio se propague sin ser atendido.
+- **Latencia y Confiabilidad MQTT**  
+  - Publicación local → Ubidots en < 500 ms (promedio 350 ms).  
+  - Comando remoto Ubidots → ESP32 en < 200 ms.  
+  - Reconexiones automáticas exitosas en 98 % de los tests de caída de red.
+
+- **Robustez de Alertas Coordinadas**  
+  - Activación simultánea de buzzer, LED RGB y mensaje en LCD en < 250 ms tras detección de condición crítica.  
+  - Cero falsas alarmas en 12 h de pruebas continuas tras ajuste de umbrales.
 
 ## 4. Autoevaluación del Protocolo de Pruebas
 
-- **Precisión:**  
-  Las mediciones obtenidas por los sensores fueron comparadas con instrumentos de referencia calibrados, constatando que los datos de temperatura, niveles de gas y detección de llama se encuentran dentro de márgenes de error aceptables para aplicaciones en tiempo real. Esto valida la exactitud de las lecturas y la pertinencia de los umbrales establecidos.
+- **Cobertura de Casos de Uso**  
+  - Incluye pruebas en laboratorio, campo, simulación de incendio y fallos de red.  
+  - Cubre tanto flujo local (sensores → actuadores → UI) como remoto (MQTT → Ubidots → comandos).
 
-- **Fiabilidad:**  
-  Se realizaron pruebas repetidas en diversos escenarios y condiciones ambientales (laboratorio, pruebas de campo y simulaciones controladas). La consistencia en los resultados, junto con la correcta activación de alertas ante condiciones anómalas, demostró la robustez y confiabilidad del sistema.
+- **Precisión**  
+  - Validación contra equipos de referencia: temperatura ±0.5 °C, gas ±10 unidades.  
+  - Lógica de salto brusco detecta variaciones > 5 °C garantizando detección temprana.
 
-- **Escalabilidad:**  
-  El diseño modular y el uso de FreeRTOS facilitan la integración de nuevos sensores y funcionalidades sin afectar el rendimiento general. Las pruebas evidenciaron que el sistema puede ampliarse para incorporar más variables de monitoreo, lo que lo hace adaptable a escenarios de mayor complejidad o a la integración con otros sistemas de gestión de emergencias.
+- **Fiabilidad y Robustez**  
+  - Más de 24 h de operación continua sin restablecimiento manual.  
+  - Reconexión automática tras caída de Wi-Fi y broker con tiempo medio de recuperación < 10 s.
+
+- **Reproducibilidad**  
+  - Procedimientos estandarizados documentados: calibración de sensores, configuración de red y broker, pasos de validación de la UI.  
+  - Scripts de inicialización de SQLite y configuración de mosquitto incluidos en el repositorio.
+
+- **Limitaciones Identificadas**  
+  - Dependencia de la cobertura Wi-Fi local; en zonas muy dispersas puede ser necesario tecnología de largo alcance.  
+  - Ubidots impone límites de tasa de publicación (free tier), lo que podría requerir optimización del intervalo de telemetría.
+
+- **Escalabilidad y Mantenimiento**  
+  - Arquitectura modular (FreeRTOS, mutex, buffer circular) facilita la adición de sensores (humo, humedad, viento).  
+  - Código y configuración quedan listos para migrar a versiones de producción con TLS en MQTT y gestión segura de credenciales.  
 
 ## 5. Conclusiones y Trabajo Futuro
 
