@@ -4,10 +4,10 @@
 
 ## 1. Introducción
 ### 1.1 Resumen General
-Este documento describe el desarrollo de un sistema IoT de monitoreo ambiental para la detección temprana de incendios forestales en los cerros orientales de Bogotá. En esta tercera fase, se integra un enfoque más robusto de conectividad y escalabilidad mediante el uso conjunto del microcontrolador ESP32 y una Raspberry Pi como gateway IoT, con almacenamiento local y transmisión a una plataforma en la nube.
+te documento describe el desarrollo de un sistema IoT de monitoreo ambiental para la detección temprana de incendios forestales en los cerros orientales de Bogotá. En esta tercera fase, se integra un enfoque más robusto de conectividad y escalabilidad mediante el uso conjunto del microcontrolador ESP32 y una Raspberry Pi como gateway IoT, con almacenamiento local y transmisión a una plataforma en la nube. Además, se ha incorporado un mecanismo de notificaciones por SMS a teléfonos móviles: cuando cualquiera de las variables críticas (temperatura, nivel de gas o detección de llama) supera sus umbrales definidos, el sistema envía de inmediato un mensaje de texto con el nombre de la variable, su valor exacto y la marca de tiempo, garantizando que la alerta llegue tanto in situ como de forma remota a los responsables.
 ### 1.2 Motivación
 Los cerros orientales de Bogotá son una zona ecológica de gran importancia, pero altamente susceptible a incendios forestales debido a la sequía y actividad humana. 
-La detección temprana de incendios es clave para minimizar daños ambientales y proteger comunidades cercanas. Para ello, se requiere un sistema de monitoreo en tiempo real que permita detectar cambios bruscos en temperatura, presencia de humo y emisión de gases característicos de la combustión. Además, es fundamental contar con una plataforma que no solo permita visualizar el historial de datos y activar alarmas físicas de manera remota, sino que también genere alertas automáticas en caso de riesgo inminente de incendio, facilitando una respuesta rápida y efectiva.
+La detección temprana de incendios es clave para minimizar daños ambientales y proteger comunidades cercanas. Para ello, se requiere un sistema de monitoreo en tiempo real que permita detectar cambios bruscos en temperatura, presencia de humo y emisión de gases característicos de la combustión. Además, es fundamental contar con una plataforma que no solo permita visualizar el historial de datos y activar alarmas físicas de manera remota, sino que también genere alertas automáticas y en forma de sms en caso de riesgo inminente de incendio, facilitando una respuesta rápida y efectiva.
 
 
 
@@ -918,59 +918,64 @@ Dado que Ubidots no permite agrupar en una sola alerta los umbrales de temperatu
 
 ### 3.1 Metodología de Pruebas
 
-- **Prueba de Sensores In Situ y en Campo**  
-  - **DS18B20 (digital, OneWire):** comparación con termómetro calibrado en 20–40 °C; margen de error máximo ±0.5 °C.  
-  - **MQ-2 (analógico, ADC 10 bits):** validación con concentraciones de propano conocidas; ajuste fino del umbral en 600–800 unidades.  
-  - **Detector de llama (digital):** prueba de detección a distintas distancias (5 cm, 10 cm, 20 cm) usando fuente de llama controlada; tiempo de respuesta < 200 ms.  
-  - Se capturaron lecturas en laboratorio y en exteriores; se ajustaron umbrales (30 °C, 700 unidades, salto brusco > 5 °C) y se introdujo lógica de detección de incremento abrupto para reducir falsas alarmas.
+ **Prueba de Sensores:**  
+  Se realizó la validación de los datos de temperatura, niveles de gas y detección de llama en distintos entornos. En el laboratorio se compararon las mediciones obtenidas por el sistema con instrumentos calibrados, mientras que en pruebas de campo se evaluó la respuesta de los sensores ante condiciones ambientales variables. Esto permitió ajustar los umbrales (por ejemplo, 30°C para temperatura y 700 unidades para gas) y confirmar la capacidad del sistema para identificar incrementos bruscos (mayor a 5°C) de manera oportuna.
 
-- **Prueba de la Interfaz Web Local**  
-  - Acceso desde PC, smartphone y tablet conectados a la red Wi-Fi del ESP32.  
-  - Verificación de los endpoints `/data` y `/history`: actualización de valores y de log cada segundo sin pérdida de frames.  
-  - Comprobación de botones de control (buzzer, LCD, RGB, reset log): latencia de respuesta < 150 ms y feedback inmediato en la UI.
+- **Prueba del Servidor Web:**  
+  Se verificó la accesibilidad y funcionalidad del servidor web embebido en el ESP32. La interfaz fue probada desde diferentes dispositivos (computadoras, smartphones y tablets) conectados a la WLAN proporcionada por la alcaldía. Se evaluó la actualización en tiempo real de los datos, la correcta visualización del estado de los sensores, y la respuesta a comandos para alternar el estado de actuadores (buzzer, LCD y LED RGB).
+
+- **Prueba de Alertas:**  
+  Se simuló la activación de condiciones anómalas generadas por sobrecalentamiento, niveles elevados de gas y detección de llama. En estas pruebas se comprobó que, al superar los umbrales establecidos, el sistema activara simultáneamente los indicadores físicos:
+  - **LED RGB:** Cambia a color rojo o amarillo según la gravedad de la situación.
+  - **Buzzer:** Emite una señal sonora de 1000 Hz para alertar inmediatamente.
+  - **Pantalla LCD:** Muestra mensajes de advertencia (“FUEGO!” o “Posible incendio!”).  
+  Estas pruebas ayudaron a ajustar la sincronización y a minimizar las falsas alarmas.
+
+- **Simulación de Incendio:**  
+  Se empleó una fuente controlada (por ejemplo, un encendedor) para simular la presencia de fuego y evaluar la respuesta del sistema. Se midió el tiempo transcurrido desde la detección de la señal de llama hasta la activación completa de las alertas, constatando la capacidad del sistema para reaccionar en tiempo real ante un inicio de incendio.
 
 - **Prueba de Comunicación MQTT y Ubidots**  
   - **Broker local en Raspberry Pi (Mosquitto):** suscripciones a topics de telemetría (`/sensores`) y control (`/control/*`); reconexión automática tras caída de red.  
   - **Publicación a Ubidots:** envío de JSON con sensores y estados de actuadores; medición de latencia end-to-end < 500 ms.  
-  - **Recepción de comandos remotos:** simulación de mensajes `alarm/reset` y `alarm/trigger` desde Ubidots; verificación de desactivación y activación de alarmas en el ESP32 en < 200 ms.
 
 - **Simulación de Fallos y Mecanismos de Recuperación**  
-  - Corte de Wi-Fi y caída del broker local: comprobación de reintentos de conexión Wi-Fi (cada 5 s) y de MQTT (cada 5 s) sin bloquear otras tareas.  
-  - Puerto de Ubidots inaccesible: almacenamiento temporal en buffer circular de FreeRTOS y reenvío automático al restaurarse la conexión.  
+  - Corte de Wi-Fi y caída del broker local: comprobación de reintentos de conexión Wi-Fi (cada 5 s) y de MQTT (cada 5 s) sin bloquear otras tareas.
+    
+- **Prueba de Notificaciones SMS**  
+  - Simular el sobrepaso de umbrales de temperatura, gas y llama para disparar cada alerta.  
+  - Verificar que se envía un SMS al número configurado con el nombre de la variable, su valor y la marca de tiempo.  
+  - Probar en distintos dispositivos (Android, iOS) 
+
+- **Prueba de Persistencia y Recuperación tras Reinicio**  
+  - Confirmar que la **base de datos SQLite** en la Pi conserva todos los registros y, al reconectarse, el script Python publica en Ubidots los datos pendientes.  
 
 ### 3.2 Resultados
 
-- **Precisión y Consistencia de Lecturas**  
-  - DS18B20: desviación media de ±0.4 °C.  
-  - MQ-2: variación ≤ ±8 unidades tras calibración.  
-  - Detector de llama: 100 % de detección a 10 cm, 95 % a 20 cm.
 
-- **Rendimiento de la UI Local**  
-  - Actualización de datos y logs cada segundo sin retrasos.  
-  - Respuesta a comandos de actuadores en < 150 ms, garantizando interactividad fluida.
+- **Detección en Tiempo Real:**  
+  Se evidenció la capacidad del sistema para detectar aumentos bruscos de temperatura en tiempo real, identificando incrementos superiores a 5 °C en menos de 500 ms. Esto es fundamental para la detección temprana de posibles incendios.
 
-- **Latencia y Confiabilidad MQTT**  
-  - Publicación local → Ubidots en < 500 ms (promedio 350 ms).  
-  - Comando remoto Ubidots → ESP32 en < 200 ms.  
-  - Reconexiones automáticas exitosas en 98 % de los tests de caída de red.
+- **Interfaz Web Funcional:**  
+  La plataforma embebida en el ESP32 mostró en vivo el estado de temperatura, gas y llama, con un historial que se refresca cada segundo sin pérdida de datos. Los controles de buzzer, display y RGB respondieron con latencia < 150 ms.
 
-- **Robustez de Alertas Coordinadas**  
-  - Activación simultánea de buzzer, LED RGB y mensaje en LCD en < 250 ms tras detección de condición crítica.  
-  - Cero falsas alarmas en 12 h de pruebas continuas tras ajuste de umbrales.
+- **Dashboard Global en Ubidots:**  
+  El gateway MQTT en Raspberry Pi publicó con latencia end-to-end y los gráficos de temperatura y gas permitieron visualizar tendencias históricas (09:00–13:00) y compararlas con umbrales de alerta.
 
+- **Activación de Alertas Locales:**  
+  Bajo condiciones críticas, buzzer, LED RGB y LCD se activaron de manera coordinada, asegurando una notificación física inmediata y local.
+
+- **Notificaciones por SMS:**  
+  Cada vez que temperatura, gas o llama superaron su umbral, se generó un SMS que incluyó variable, valor y timestamp, garantizando alerta remota a las autoridades.
+
+- **Persistencia y Recuperación:**  
+  Tras reinicios del ESP32 o de la Raspberry Pi, la base de datos SQLite en la Pi conservó todos los registros; al restablecer la conexión MQTT, se reenvió automáticamente el backlog a Ubidots sin pérdida de datos.
+
+
+  
 ## 4. Autoevaluación del Protocolo de Pruebas
 
 - **Cobertura de Casos de Uso**  
-  - Incluye pruebas en laboratorio, campo, simulación de incendio y fallos de red.  
-  - Cubre tanto flujo local (sensores → actuadores → UI) como remoto (MQTT → Ubidots → comandos).
-
-- **Precisión**  
-  - Validación contra equipos de referencia: temperatura ±0.5 °C, gas ±10 unidades.  
-  - Lógica de salto brusco detecta variaciones > 5 °C garantizando detección temprana.
-
-- **Fiabilidad y Robustez**  
-  - Más de 24 h de operación continua sin restablecimiento manual.  
-  - Reconexión automática tras caída de Wi-Fi y broker con tiempo medio de recuperación < 10 s.
+  -  Cubre tanto flujo local (sensores → actuadores → UI) como remoto (MQTT → Ubidots → comandos).
 
 - **Reproducibilidad**  
   - Procedimientos estandarizados documentados: calibración de sensores, configuración de red y broker, pasos de validación de la UI.  
@@ -979,10 +984,22 @@ Dado que Ubidots no permite agrupar en una sola alerta los umbrales de temperatu
 - **Limitaciones Identificadas**  
   - Dependencia de la cobertura Wi-Fi local; en zonas muy dispersas puede ser necesario tecnología de largo alcance.  
   - Ubidots impone límites de tasa de publicación (free tier), lo que podría requerir optimización del intervalo de telemetría.
+ 
+- **Interfaz Web Funcional:**  
+  - La plataforma web demostró ser completamente operativa, mostrando en vivo el estado actual de las variables (temperatura, gas y detección de llama) y ofreciendo un historial reciente de lecturas. La actualización en tiempo real permitió a los usuarios monitorear de forma remota y precisa el estado del entorno.
+  
+- **Notificaciones por SMS**  
+  - Simulación de umbrales superados (temperatura, gas, llama) y envío de SMS con variable, valor y timestamp en < 10 s.  
+  - Verificación de contenido y legibilidad en distintos dispositivos (Android, iOS).
 
-- **Escalabilidad y Mantenimiento**  
-  - Arquitectura modular (FreeRTOS, mutex, buffer circular) facilita la adición de sensores (humo, humedad, viento).  
-  - Código y configuración quedan listos para migrar a versiones de producción con TLS en MQTT y gestión segura de credenciales.  
+- **Activación de Alertas:**  
+  - Las pruebas confirmaron que, en condiciones críticas, el sistema activa de forma coordinada todos los mecanismos de alerta (buzzer, LED RGB y mensajes en la pantalla LCD). Esto asegura una respuesta inmediata ante la detección de condiciones anómalas, reduciendo el riesgo de que un incendio se propague sin ser atendido.
+
+  - **Dashboard Ubidots Funcional**  
+  - Widgets de temperatura, gas, llama y alarma muestran valores en tiempo real con “Last Updated” visible.  
+  - Gráficos de línea para histórico de temperatura y gas permiten zoom y selecciones de rango (e.g., 09:00–13:00).  
+  - Switches de control remoto reflejan cambios
+  
 
 ## 5. Conclusiones y Trabajo Futuro
 
@@ -1000,11 +1017,15 @@ Dado que Ubidots no permite agrupar en una sola alerta los umbrales de temperatu
 - **Configuración de la Raspberry Pi como Broker MQTT:**  
   Montar Mosquitto en la Pi, exponerlo al ESP32 y luego conectarlo a Internet (Ubidots) implicó ajustes en archivos de configuración, autorización por contraseña y puertos, así como pruebas de estabilidad bajo carga.
 
-- **Problemas de Contraseñas y Seguridad WiFi/MQTT:**  
-  Fallos iniciales al conectar el ESP32 al access point y al broker (credenciales erróneas o caracteres especiales en las claves) obligaron a implementar reintentos y mensajes de log detallados para diagnosticar rápidamente los errores.
-
 - **Conflictos de Librerías y Código Residual:**  
   Persistencia de código anterior en el ESP32 provocaba comportamientos inesperados (bus OneWire bloqueado, display sin responder). La solución implicó un `esptool erase_flash` y limpieza de dependencias en el entorno de desarrollo.
+
+- **Sincronización de Estado del Buzzer desde Ubidots:**  
+  Al intentar cambiar el estado del buzzer desde Ubidots, el ESP32 seguía publicando constantemente “ON”, por lo que el cambio “OFF” sólo duraba los ~500 ms de retardo MQTT antes de que el payload local revirtiera el estado; esto motivó implementar un semáforo que priorizara el último comando recibido (ya sea local o remoto).}
+
+- **Conflicto de Hostnames en la Red Wi-Fi:**
+ Al compartir la conexión a Internet con dos Raspberry Pis que tenían el mismo nombre de host por defecto (raspberrypi), se generó un conflicto en la resolución de nombres dentro de la red local. Esto causó que, al intentar conectarnos por SSH desde nuestro dispositivo usando ssh pi@raspberrypi.local, el sistema resolviera el nombre al IP de la Raspberry Pi equivocada, que tenía una contraseña diferente, resultando en un error de "contraseña incorrecta". Para resolverlo, cambiamos el hostname de nuestra Raspberry Pi y en general la volvimos a configurar. Además, limpiamos las claves SSH antiguas en el cliente para evitar conflictos de autenticación. Finalmente, confirmamos la dirección IP de cada Raspberry Pi desde la el desipositivo que estaba compartiendo internet para acceder directamente por IP (e.g., ssh pi@192.168.28.58), eliminando la dependencia de la resolución de nombres y asegurando una conexión estable.
+
 
 ### 5.2 Conclusiones
 
@@ -1013,15 +1034,17 @@ Dado que Ubidots no permite agrupar en una sola alerta los umbrales de temperatu
 - La **Raspberry Pi** como broker local mejora la latencia en la red LAN, mientras que el enlace a Ubidots ofrece una capa de monitoreo y control global.
 - El sistema muestra **robustez** frente a desconexiones de red y reinicios: los mecanismos de reconexión automática y persistencia en SQLite aseguran que no se pierdan datos.
 - Gracias al riguroso manejo de errores en los módulos WiFi, MQTT y base de datos, hoy contamos con un sistema estable que cubre desde la captura de señales físicas hasta la presentación web local y la transmisión a la nube.
-
+- Las pruebas realizadas confirman la precisión y fiabilidad del sistema, así como su capacidad para activar alertas de manera efectiva y coordinada.
+- La solución propuesta contribuye significativamente a la prevención y mitigación de incendios forestales, ofreciendo un sistema de alerta temprana que puede ser implementado en zonas vulnerables.
+  
 ### 5.3 Trabajo Futuro
 
 - Nuevos Sensores Ambientales:** detectar humo, humedad y velocidad del viento para enriquecer el análisis y anticipar incendios con mayores garantías.
 - Mejoras de Seguridad y Gestión de Credenciales:** implementar almacenamiento seguro (p.e. Key Vault) para tokens MQTT/WiFi y certificados TLS en Mosquitto.
 - Algoritmos de Detección Inteligente:** incorporar filtros de señal y modelos de machine learning para diferenciar eventos reales de ruido ambiental y reducir falsas alarmas.
 - Comunicaciones de Largo Alcance:** evaluar módulos 4G/5G o LoRaWAN para cubrir áreas rurales sin infraestructura de red estable.
-- Aplicación Móvil y Notificaciones Push:** desarrollar frontend móvil nativo o multiplataforma que reciba alertas en tiempo real y permita controlar actuadores desde cualquier dispositivo.
-- Pruebas Piloto con Autoridades Locales:** desplegar en terreno con Bomberos y agentes ambientales para ajustar parámetros de detección y validar operatividad en condiciones reales.  
+-  Realizar pruebas piloto en campo en colaboración con autoridades locales para validar el sistema en condiciones reales y ajustar parámetros en función de los resultados obtenidos, lo que permitirá adaptar y mejorar la solución para implementaciones a gran escala.
+
 
 ## **6. Anexos**
 ### Codigo ESP32 comentado
