@@ -638,7 +638,7 @@ Para que el dashboard Ubidots pueda activar/desactivar el buzzer del ESP32:
  
 <div style="display: flex; gap: 10px; justify-content: center;">
   <img src="imagenesWiki/evento.jpg" alt="Evento" width="400">
-  <img src="imagenesWiki/evento1.jpg" alt="Evento1" width="600">
+  <img src="imagenesWiki/evento1.jpg" alt="Evento1" width="500">
 </div>
 
     
@@ -1729,16 +1729,17 @@ Captura de pantalla del tablero de control de Ubidots: en la parte superior se v
 
 
 ![.](imagenesWiki/dash2.jpg)
+
 En esta captura del dashboard de Ubidots podemos ver, además de los widgets de valor instantáneo, dos gráficos de línea que muestran el histórico de las mediciones:
 
 En la parte superior derecha se observa el gráfico de gas, con lecturas estables alrededor de 600–700 ppm y un pico cercano a 800 ppm al final, mientras que en el centro inferior el gráfico de temperatura muestra un ascenso desde ~24 °C hasta casi 29.5 °C al mediodía, seguido de oscilaciones entre 26–28 °C y un repunte final; ambos incluyen ejes de tiempo (09:00–13:00) y un selector de rango para analizar tendencias históricas en Ubidots.
 
 
 ![.](imagenesWiki/dash3.jpg)
+
 Se aprecian dos tableros de control ejecutándose en paralelo: a la izquierda, la interfaz web embebida en el ESP32 muestra en tres secciones el estado actual con la temperatura, el valor de gas y la detección de llama, botones para alternar el buzzer, el LCD y el LED RGB, y un registro tabular de las últimas lecturas; a la derecha, el dashboard en la nube de Ubidots presenta un widget termómetro con la temperatura en tiempo real, un indicador circular de llama, un indicador de gas, dos gráficos de línea que trazan el histórico de temperatura y gas, y un switch grande para controlar remotamente la alarma.
 
-
-![.](imagenesWiki/msg.jpg)
+<img src="imagenesWiki/msg.jpg" alt="Mensaje de alerta Ubidots" width="500">
 
 
 Captura de pantalla de la app de mensajería mostrando tres SMS recibidos del número “890720” que son las alarmas que genera ubidots:
