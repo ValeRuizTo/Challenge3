@@ -637,19 +637,19 @@ Para que el dashboard Ubidots pueda activar/desactivar el buzzer del ESP32:
   - Mensaje de "revisar el valor actual  y acutuar"
  
 <div style="display: flex; gap: 10px; justify-content: center;">
-  <img src="imagenesWiki/evento.png" alt="Evento" width="300">
-  <img src="imagenesWiki/evento1.png" alt="Evento1" width="300">
+  <img src="imagenesWiki/evento.jpg" alt="Evento" width="400">
+  <img src="imagenesWiki/evento1.jpg" alt="Evento1" width="600">
 </div>
 
     
 ### Evento “Posible Incendio”
 Dado que Ubidots no permite agrupar en una sola alerta los umbrales de temperatura y gas, cuando ambas variables superan su límite el sistema emite dos SMS independientes, uno por temperatura y otro por gas, cada uno con el texto “Posible incendio”. La detección de llama, por su parte, se mantiene como un evento SMS separado (“mensaje llama”).
   <p align="center">
-  <img src="imagenesWiki/evento2.jpg" />
+  <img src="imagenesWiki/evento2.jpg" alt="Evento1" width="500" />
 </p>
 
 
-> **Solo SMS**: no se envían notificaciones por email ni webhook, solo texto al número configurado.
+**Solo SMS**: no se envían notificaciones por email ni webhook, solo texto al número configurado.
 
 
 
@@ -661,8 +661,8 @@ Dado que Ubidots no permite agrupar en una sola alerta los umbrales de temperatu
 
 4. **Definir condición**:  
    - Seleccionar la variable **“temperatura”**, operador **>**, umbral **30**.  
-   - **O** añadir cláusula para **gas > 700**.  
-   - **O** añadir cláusula para **llama == 1**.  
+   -  añadir cláusula para **gas > 700**.  
+   -  añadir cláusula para **llama == 1**.  
 5. **Configurar acción**:  
    - Elegir **“Send SMS”**.  
    - Ingresar número de teléfono destino.  
@@ -670,8 +670,9 @@ Dado que Ubidots no permite agrupar en una sola alerta los umbrales de temperatu
 6. **Personalizar mensaje**:
 7. **al final se tienen 3 eventos configurados (el de posible incendio y el de llama detectada)**
      <p align="center">
-  <img src="imagenesWiki/evento3.jpg" />
+  <img src="imagenesWiki/evento3.jpg" alt="Evento1" width="700" />
 </p>
+
 
 ## **2.8 Diagramas UML**
 1. **Diagrama de Caso de Uso**: Describe la interacción entre los usuarios y el sistema
@@ -1023,385 +1024,690 @@ Dado que Ubidots no permite agrupar en una sola alerta los umbrales de temperatu
 - Pruebas Piloto con Autoridades Locales:** desplegar en terreno con Bomberos y agentes ambientales para ajustar parámetros de detección y validar operatividad en condiciones reales.  
 
 ## **6. Anexos**
-### Codigo comentado
+### Codigo ESP32 comentado
 
-          #include <WiFi.h>              // Librería para conectar el ESP32 a una red WiFi
-          #include <WebServer.h>         // Librería para crear un servidor web en el ESP32
-          #include <Wire.h>              // Librería para comunicación I2C (usada por el LCD)
-          #include <LiquidCrystal_I2C.h> // Librería para controlar el display LCD I2C
-          #include <OneWire.h>           // Librería para comunicación con sensores OneWire (temperatura)
-          #include <DallasTemperature.h> // Librería para leer el sensor de temperatura DS18B20
+          #include <WiFi.h>                       // Biblioteca para conectar el ESP32 a redes WiFi
+          #include <WebServer.h>                  // Biblioteca para crear un servidor web HTTP
+          #include <PubSubClient.h>               // Biblioteca para cliente MQTT
+          #include <Wire.h>                       // Biblioteca I2C para comunicación con el LCD
+          #include <LiquidCrystal_I2C.h>          // Biblioteca para manejar pantalla LCD I2C
+          #include <OneWire.h>                    // Biblioteca para protocolo OneWire (sensor de temperatura)
+          #include <DallasTemperature.h>          // Biblioteca para sensores Dallas (DS18B20)
+          #include <freertos/FreeRTOS.h>          // Cabeceras de FreeRTOS
+          #include <freertos/task.h>              // Cabeceras para tareas de FreeRTOS
+          #include <freertos/semphr.h>            // Cabeceras para semáforos (mutex)
           
-          // Definición de credenciales de la red WiFi
-          const char* redNombre = "Zflip de Valentina"; // Nombre de la red WiFi
-          const char* redClave = "v4l32006";            // Contraseña de la red WiFi
+          // ————————————— Configuración WiFi —————————————
+          const char* ssid     = "Zflip de Valentina";  // Nombre de la red WiFi
+          const char* password = "v4l32006";            // Contraseña de la red WiFi
           
-          // Creación de un servidor web en el puerto 80
-          WebServer webServ(80);
+          // ————————————— Configuración MQTT ————————————
+          const char* mqtt_server       = "192.168.28.58";           // Dirección IP del broker MQTT local
+          const int   mqtt_port         = 1883;                      // Puerto del broker MQTT
+          const char* mqtt_topic        = "cerrosorientales/sensores"; // Tópico para publicar telemetría
+          const char* topic_ctrl_buzzer = "cerrosorientales/control/zumbon"; // Tópico control buzzer
+          const char* topic_ctrl_disp   = "cerrosorientales/control/dispon"; // Tópico control display
+          const char* topic_ctrl_rgb    = "cerrosorientales/control/rgbon";  // Tópico control RGB
           
-          // Definición de umbrales para las condiciones de alarma
-          #define TEMP_MAX 30  // Temperatura máxima permitida (30°C)
-          #define GAS_MAX 700  // Nivel máximo de gas permitido (700 unidades)
+          WiFiClient     espClient;             // Cliente TCP/IP subyacente para MQTT
+          PubSubClient   client(espClient);     // Cliente MQTT usando espClient
+          WebServer      webServ(80);           // Servidor web HTTP en puerto 80
           
-          // Definición de pines para los sensores
-          #define PIN_LLAMAS 15 // Pin para el sensor de llama (digital)
-          #define PIN_TEMP 4    // Pin para el sensor de temperatura (OneWire)
+          // ————————————— Sensores y Actuadores ———————————
+          #define TEMP_MAX    30              // Umbral de temperatura para alerta
+          #define GAS_MAX     700             // Umbral de gas para alerta
+          #define PIN_LLAMAS  15              // Pin digital conectado al sensor de llamas
+          #define PIN_TEMP    4               // Pin digital para el bus OneWire
           
-          // Definición de pines para los actuadores
-          const int zumbPin = 27;   // Pin para el buzzer (zumbador)
-          const int gasPin = 35;    // Pin para el sensor de gas (analógico)
-          const int rojoPin = 19;   // Pin para el canal rojo del LED RGB
-          const int verdePin = 18;  // Pin para el canal verde del LED RGB
-          const int azulPin = 5;    // Pin para el canal azul del LED RGB
+          const int zumbPin  = 27;             // Pin del buzzer
+          const int gasPin   = 35;             // Pin analógico del sensor de gas
+          const int rojoPin  = 19;             // Pin LED RGB Rojo
+          const int verdePin = 18;             // Pin LED RGB Verde
+          const int azulPin  = 5;              // Pin LED RGB Azul
           
-          // Inicialización de objetos para el hardware
-          LiquidCrystal_I2C display(0x27, 16, 2); // Display LCD I2C (dirección 0x27, 16 columnas, 2 filas)
-          OneWire wireBus(PIN_TEMP);              // Objeto para comunicación OneWire en el pin de temperatura
-          DallasTemperature tempSensor(&wireBus);  // Objeto para leer el sensor de temperatura DS18B20
+          LiquidCrystal_I2C display(0x27, 16, 2); // Objeto LCD I2C en dirección 0x27 16x2
+          OneWire       wireBus(PIN_TEMP);        // Objeto OneWire en el pin de temperatura
+          DallasTemperature tempSensor(&wireBus); // Sensor Dallas DS18B20 usando OneWire
           
-          // Variables globales para almacenar las lecturas de los sensores
-          volatile float valorTemp = 0.0; // Temperatura actual (volatile para uso en hilos)
-          volatile int valorGas = 0;      // Nivel de gas actual (volatile para uso en hilos)
-          volatile bool hayLlama = false; // Estado del sensor de llama (true si hay llama, volatile para uso en hilos)
-          volatile bool alertaActiva = false; // Indica si hay una alerta activa (volatile para uso en hilos)
-          float tempAnt = 0;              // Temperatura anterior para detectar incrementos bruscos
-          unsigned long tiempoUlt = 0;    // Última vez que se actualizó el sistema (en milisegundos)
-          const long refresco = 500;      // Intervalo de actualización del sistema (500 ms)
+          // ————————————— Variables Compartidas ———————————
+          volatile float valorTemp    = 0.0;   // Temperatura actual (compartida entre tareas)
+          volatile int   valorGas     = 0;     // Valor de gas actual (ADC)
+          volatile bool  hayLlama     = false; // Indica si se detecta llama
+          volatile bool  zumbOn       = true;  // Estado del buzzer (habilitado/deshabilitado)
+          volatile bool  dispOn       = true;  // Estado del display (on/off)
+          volatile bool  rgbOn        = true;  // Estado del LED RGB (on/off)
           
-          // Variables para controlar el estado de los actuadores
-          volatile bool zumbOn = true; // Estado del buzzer (true: encendido, false: apagado)
-          volatile bool dispOn = true;  // Estado del display LCD (true: encendido, false: apagado)
-          volatile bool rgbOn = true;   // Estado del LED RGB (true: encendido, false: apagado)
           
-          // Estructura para almacenar las lecturas de los sensores en el historial
-          struct Datos {
-            float t;           // Temperatura
-            int g;             // Nivel de gas
-            bool f;            // Estado de la llama (true: hay llama)
-            unsigned long m;   // Tiempo de la lectura (en milisegundos)
-          };
+          // Historial de lecturas
+          struct Datos { float t; int g; bool f; unsigned long m; }; // Estructura para almacenar t, gas, llama y timestamp
+          #define REG_MAX 10                          // Tamaño máximo del buffer circular
+          Datos logDatos[REG_MAX];                   // Array circular de datos
+          int logPos = 0, logCant = 0;               // Puntero y contador de datos en buffer
           
-          // Definición del historial de lecturas
-          #define REG_MAX 10         // Máximo número de registros en el historial
-          Datos logDatos[REG_MAX];   // Arreglo para almacenar el historial
-          int logPos = 0;            // Posición actual en el historial (índice circular)
-          int logCant = 0;           // Cantidad de registros almacenados
+          // ————————————— Mutex para Protección ——————————
+          SemaphoreHandle_t xMutex;                 // Mutex para proteger acceso a variables compartidas
           
-          // Función para controlar el LED RGB
+          // Prototipos de funciones
+          void leerSensores(void*);                 // Tarea de lectura de sensores
+          void enviarMqtt(void*);                   // Tarea de envío MQTT
+          void setup_wifi();                        // Función para conectar a WiFi
+          void reconnect_mqtt();                    // Función para reconectar MQTT
+          void pagInicio();                         // Función que genera la página web principal
+          void enviarEstado();                      // Envía estado actual en /data
+          void enviarLog();                         // Envía historial en /history
+          void alternarZumb();                      // Maneja toggle de buzzer vía web
+          void alternarDisp();                      // Maneja toggle de display vía web
+          void alternarRGB();                       // Maneja toggle de RGB vía web
+          void resetearLog();                       // Limpia el buffer de log
+          void pintarRGB(int r, int g, int b);      // Función auxiliar para setear RGB
+          void mqttCallback(char* topic, byte* payload, unsigned int length); // Callback MQTT
+          
+          
+          // ————————————— Pintar RGB —————————————
           void pintarRGB(int r, int g, int b) {
-            if (rgbOn) { // Verifica si el LED RGB está habilitado
-              digitalWrite(rojoPin, r);   // Establece el valor del canal rojo
-              digitalWrite(verdePin, g);  // Establece el valor del canal verde
-              digitalWrite(azulPin, b);   // Establece el valor del canal azul
-            } else { // Si el LED RGB está deshabilitado, apaga todos los canales
-              digitalWrite(rojoPin, 0);
-              digitalWrite(verdePin, 0);
-              digitalWrite(azulPin, 0);
+            if (rgbOn) {                          // Solo pinta si rgbOn == true
+              digitalWrite(rojoPin, r);           // Setea canal rojo
+              digitalWrite(verdePin, g);          // Setea canal verde
+              digitalWrite(azulPin, b);           // Setea canal azul
+            } else {
+              digitalWrite(rojoPin, 0);           // Apaga rojo
+              digitalWrite(verdePin, 0);          // Apaga verde
+              digitalWrite(azulPin, 0);           // Apaga azul
             }
           }
           
-          // Función que se ejecuta en un hilo para leer los sensores
+          // ===================== Lectura de Sensores =====================
           void leerSensores(void *arg) {
-            tempSensor.begin();         // Inicializa el sensor de temperatura
-            analogReadResolution(10);   // Configura la resolución del ADC a 10 bits
+            tempSensor.begin();                   // Inicializa el sensor de temperatura
+            analogReadResolution(10);             // Resolución ADC de 10 bits
+            for (;;) {                            // Bucle infinito de FreeRTOS
+              tempSensor.requestTemperatures();   // Solicita nueva medición de temperatura
+              float t = tempSensor.getTempCByIndex(0); // Lee temperatura en °C
+              int g    = analogRead(gasPin);      // Lee valor de gas (0-1023)
+              bool f   = !digitalRead(PIN_LLAMAS);// Lee sensor de llama (activo pues INPUT_PULLUP)
           
-            for (;;) { // Bucle infinito para leer los sensores continuamente
-              tempSensor.requestTemperatures(); // Solicita la temperatura al sensor
-              float t = tempSensor.getTempCByIndex(0); // Lee la temperatura en °C
-              int g = analogRead(gasPin);              // Lee el nivel de gas (analógico)
-              bool f = !digitalRead(PIN_LLAMAS);       // Lee el sensor de llama (LOW indica presencia de llama)
+              // sección crítica
+              if (xSemaphoreTake(xMutex, portMAX_DELAY)) { // Toma mutex para proteger variables
+                valorTemp = t;                    // Actualiza temperatura global
+                valorGas  = g;                    // Actualiza gas global
+                hayLlama  = f;                    // Actualiza detección de llama
+                // almacenar en histórico
+                logDatos[logPos] = {t, g, f, millis()}; // Guarda lectura y timestamp
+                logPos = (logPos + 1) % REG_MAX; // Incrementa posición circular
+                if (logCant < REG_MAX) logCant++; // Incrementa contador hasta llenarse
+                xSemaphoreGive(xMutex);          // Libera mutex
+              }
           
-              // Actualiza las variables globales con las lecturas
-              valorTemp = t;
-              valorGas = g;
-              hayLlama = f;
-          
-              // Almacena la lectura en el historial
-              logDatos[logPos] = {t, g, f, millis()}; // Registra temperatura, gas, llama y tiempo
-              logPos = (logPos + 1) % REG_MAX;        // Avanza la posición circularmente
-              if (logCant < REG_MAX) logCant++;       // Incrementa el contador de registros hasta el máximo
-          
-              vTaskDelay(pdMS_TO_TICKS(200)); // Pausa la tarea 200 ms para permitir otras tareas
+              vTaskDelay(pdMS_TO_TICKS(200));     // Espera 200 ms (yield para otras tareas)
             }
           }
           
-          // Función para servir la página web principal
+          // ===================== Envío MQTT =====================
+          void enviarMqtt(void *arg) {
+            for (;;) {
+              if (!client.connected()) reconnect_mqtt(); // Si no conectado, reconectar
+              client.loop();                       // Procesa callbacks y mantiene viva conexión
+          
+              // copiar valores bajo mutex
+              float t; int g; bool f; bool z;
+              if (xSemaphoreTake(xMutex, portMAX_DELAY)) { // Toma mutex
+                t = valorTemp;                      // Guarda copia local de temperatura
+                g = valorGas;                       // Copia gas
+                f = hayLlama;                       // Copia llama
+                z = zumbOn;                         // Copia estado buzzer
+                xSemaphoreGive(xMutex);             // Libera mutex
+              }
+          
+              char msg[200];                        // Buffer para mensaje
+              snprintf(msg, sizeof(msg),
+                "{\"temperatura\":%.2f,\"gas\":%d,\"llama\":%d,\"alarma\":%d}",
+                t, g, f?1:0, z?1:0                  // Formato JSON con flags 1/0
+              );
+          
+              client.publish(mqtt_topic, msg);      // Publica telemetría al tópico
+              Serial.println("MQTT >> " + String(msg)); // Log por serial
+          
+              vTaskDelay(pdMS_TO_TICKS(500));       // Espera 500 ms
+            }
+          }
+          
+          // ===================== Callback MQTT =====================
+          void mqttCallback(char* topic, byte* payload, unsigned int length) {
+            String msg;
+            for (unsigned int i = 0; i < length; i++) msg += (char)payload[i]; // Construye string
+            Serial.printf("MQTT << [%s] %s\n", topic, msg.c_str());             // Log de mensaje entrante
+          
+            // actualizar estados bajo mutex
+            if (xSemaphoreTake(xMutex, portMAX_DELAY)) { // Toma mutex
+              if (String(topic) == topic_ctrl_buzzer) {  // Comando buzzer
+                zumbOn = (msg == "ON");                  // Actualiza flag
+                if (!zumbOn) noTone(zumbPin);            // Si apagado, detiene buzzer
+              }
+              else if (String(topic) == topic_ctrl_disp) { // Comando display
+                dispOn = (msg == "ON");                   // Actualiza flag
+                dispOn ? display.backlight()              // Control backlight
+                       : display.noBacklight();
+              }
+              else if (String(topic) == topic_ctrl_rgb) { // Comando RGB
+                rgbOn = (msg == "ON");                    // Actualiza flag
+                if (!rgbOn) pintarRGB(0,0,0);             // Si apagado, apaga RGB
+              }
+              xSemaphoreGive(xMutex);                   // Libera mutex
+            }
+          }
+          
+          void setup_wifi() {
+            Serial.print("Conectando a WiFi ");         // Mensaje inicial
+            WiFi.begin(ssid, password);                 // Inicia conexión
+            while (WiFi.status() != WL_CONNECTED) {     // Espera hasta conectar
+              delay(500);
+              Serial.print(".");
+            }
+            Serial.println("\nWiFi conectado, IP: " + WiFi.localIP().toString()); // IP obtenida
+          }
+          
+          // ===================== Reconexión MQTT =====================
+          void reconnect_mqtt() {
+            while (!client.connected()) {               // Hasta que se conecte
+              Serial.print("Conectando MQTT...");
+              if (client.connect("ESP32Client")) {      // Intenta conectar con clientId
+                Serial.println("OK");
+                client.subscribe(topic_ctrl_buzzer);    // Suscribe a tópicos de control
+                client.subscribe(topic_ctrl_disp);
+                client.subscribe(topic_ctrl_rgb);
+                Serial.println("Subscrito a topics de control");
+              } else {
+                Serial.printf("Falló rc=%d. Reintentando en 5s\n", client.state()); // Error
+                delay(5000);
+              }
+            }
+          }
+          
+          
+          // ===================== WebServer: Página Principal =====================
           void pagInicio() {
-            // HTML, CSS y JavaScript de la interfaz web
-            String html = R"rawliteral(
-          <!DOCTYPE html>
-          <html lang="es">
-          <head>
-          <meta charset="UTF-8">
-          <meta name="viewport" content="width=device-width, initial-scale=1">
-          <title>Control Incendios</title>
-          <style>
-          body {font-family: 'Segoe UI', sans-serif; background: linear-gradient(135deg, #1e3c72, #2a5298); margin: 0; padding: 20px; color: #fff;}
-          .contenedor {display: flex; flex-wrap: wrap; gap: 20px; max-width: 1200px; margin: 0 auto;}
-          .bloque {background: rgba(255, 255, 255, 0.1); border-radius: 15px; padding: 20px; flex: 1; min-width: 250px; box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2); backdrop-filter: blur(5px);}
-          .bloque h2 {margin: 0 0 10px; font-size: 24px; color: #ffd700;}
-          .bloque p {margin: 5px 0; font-size: 18px;}
-          .aviso {background: #ff4444; padding: 10px; border-radius: 10px; margin-top: 10px; font-weight: bold;}
-          .registros {max-height: 400px; overflow-y: auto;}
-          .registros table {width: 100%; border-collapse: collapse; color: #fff;}
-          .registros th, .registros td {padding: 8px; text-align: center; border-bottom: 1px solid rgba(255, 255, 255, 0.2);}
-          .registros th {background: rgba(255, 215, 0, 0.3);}
-          .opciones {display: flex; flex-direction: column; gap: 10px; margin-top: 20px;}
-          .fila-botones {display: flex; gap: 10px; flex-wrap: wrap;}
-          button {padding: 10px 20px; font-size: 16px; border: none; border-radius: 25px; cursor: pointer; background: #ffd700; color: #1e3c72; transition: background 0.3s;}
-          button:hover {background: #ffea00;}
-          </style>
-          </head>
-          <body>
-          <div class="contenedor">
-          <div class="bloque">
-          <h2>Estado</h2>
-          <p>Temperatura: <span id="t-val">-- °C</span></p>
-          <p>Gas: <span id="g-val">--</span></p>
-          <p>Llama: <span id="f-val">--</span></p>
-          <div id="aviso-zona"></div>
-          </div>
-          <div class="bloque">
-          <h2>Acciones</h2>
-          <div class="opciones">
-          <div class="fila-botones">
-          <button onclick="switchZumb()">Zumbador: <span id="zumb-est">ON</span></button>
-          <button onclick="switchDisp()">Display: <span id="disp-est">ON</span></button>
-          <button onclick="switchRGB()">RGB: <span id="rgb-est">ON</span></button>
-          </div>
-          <div class="fila-botones">
-          <button onclick="resetLog()">Resetear Log</button>
-          </div>
-          </div>
-          </div>
-          <div class="bloque registros">
-          <h2>Log</h2>
-          <table id="log-tabla">
-          <tr><th>Tiempo (s)</th><th>Temp (°C)</th><th>Gas</th><th>Llama</th></tr>
-          </table>
-          </div>
-          </div>
-          <script>
-          function cargarEstado() {
-          fetch('/data').then(r => r.json()).then(d => {
-          document.getElementById("t-val").innerText = d.temperatura + " °C";
-          document.getElementById("g-val").innerText = d.gas;
-          document.getElementById("f-val").innerText = d.llama ? "SÍ" : "NO";
-          let avisoZona = document.getElementById("aviso-zona");
-          if (d.llama) {
-          avisoZona.innerHTML = '<div class="aviso">¡PELIGRO: FUEGO!</div>';
-          } else if (d.incremento_brusco || (d.temperatura > 30 && d.gas > 700)){
-          avisoZona.innerHTML = '<div class="aviso">¡PELIGRO: POSIBLE INCENDIO!</div>';
-          }
-          else{
-          avisoZona.innerHTML = '';
-          }
-          });
-          }
-          function cargarLog() {
-          fetch('/history').then(r => r.json()).then(h => {
-          let tabla = document.getElementById("log-tabla");
-          tabla.innerHTML = "<tr><th>Tiempo (s)</th><th>Temp (°C)</th><th>Gas</th><th>Llama</th></tr>";
-          for (let i = 0; i < h.length; i++) {
-          let fila = tabla.insertRow();
-          fila.insertCell(0).innerText = h[i].timestamp;
-          fila.insertCell(1).innerText = h[i].temp;
-          fila.insertCell(2).innerText = h[i].gas;
-          fila.insertCell(3).innerText = h[i].flame ? "SÍ" : "NO";
-          }
-          });
-          }
-          function switchZumb() {
-          fetch('/toggleBuzzer').then(r => r.json()).then(d => {
-          document.getElementById("zumb-est").innerText = d.enabled ? "ON" : "OFF";
-          });
-          }
-          function switchDisp() {
-          fetch('/toggleLCD').then(r => r.json()).then(d => {
-          document.getElementById("disp-est").innerText = d.enabled ? "ON" : "OFF";
-          });
-          }
-          function switchRGB() {
-          fetch('/toggleRGB').then(r => r.json()).then(d => {
-          document.getElementById("rgb-est").innerText = d.enabled ? "ON" : "OFF";
-          });
-          }
-          function resetLog() {
-          fetch('/resetLog').then(r => r.json()).then(d => {
-          if (d.success) cargarLog();
-          });
-          }
-          setInterval(() => { cargarEstado(); cargarLog(); }, 1000);
-          cargarEstado();
-          cargarLog();
-          </script>
-          </body>
-          </html>
+             String html = R"rawliteral(
+            <!DOCTYPE html><html lang="es"><head><meta charset="UTF-8">
+            <meta name="viewport" content="width=device-width,initial-scale=1">
+            <title>Control Incendios</title><style>
+              body{font-family:sans-serif;background:#1e3c72;color:#fff;margin:0;padding:20px;}
+              .contenedor{display:flex;flex-wrap:wrap;gap:20px;max-width:1200px;margin:auto;}
+              .bloque{background:rgba(255,255,255,0.1);border-radius:15px;padding:20px;flex:1;min-width:250px;}
+              .bloque h2{color:#ffd700;} .aviso{background:#ff4444;padding:10px;border-radius:10px;}
+              table{width:100%;color:#fff;border-collapse:collapse;}
+              th,td{padding:8px;text-align:center;border-bottom:1px solid rgba(255,255,255,0.2);}
+              button{padding:10px 20px;border:none;border-radius:25px;background:#ffd700;color:#1e3c72;cursor:pointer;}
+              button:hover{background:#ffea00;}
+            </style></head><body>
+            <div class="contenedor">
+              <div class="bloque">
+                <h2>Estado</h2>
+                <p>T: <span id="t-val">--</span>°C</p>
+                <p>G: <span id="g-val">--</span></p>
+                <p>F: <span id="f-val">--</span></p>
+                <div id="aviso-zona"></div>
+              </div>
+              <div class="bloque">
+                <h2>Acciones</h2>
+                <button onclick="switchZumb()">Buzzer: <span id="z-est">ON</span></button>
+                <button onclick="switchDisp()">Display: <span id="d-est">ON</span></button>
+                <button onclick="switchRGB()">RGB: <span id="r-est">ON</span></button>
+                <button onclick="resetLog()">Reset Log</button>
+              </div>
+              <div class="bloque">
+                <h2>Log</h2>
+                <table id="log-tabla">
+                  <tr><th>t(s)</th><th>Temp</th><th>Gas</th><th>F</th></tr>
+                </table>
+              </div>
+            </div>
+            <script>
+              function cargarEstado(){
+                fetch('/data').then(r=>r.json()).then(d=>{
+                  document.getElementById('t-val').innerText=d.temperatura;
+                  document.getElementById('g-val').innerText=d.gas;
+                  document.getElementById('f-val').innerText=d.llama?'SÍ':'NO';
+                  document.getElementById('z-est').innerText=d.buzzer?'ON':'OFF';
+                  document.getElementById('d-est').innerText=d.display?'ON':'OFF';
+                  document.getElementById('r-est').innerText=d.rgb?'ON':'OFF';
+                  let aviso = document.getElementById('aviso-zona');
+                  if(d.llama) aviso.innerHTML='<div class="aviso">¡FUEGO!</div>';
+                  else if(d.temperatura>30&&d.gas>700) aviso.innerHTML='<div class="aviso">¡Peligro!</div>';
+                  else aviso.innerHTML='';
+                });
+              }
+              function cargarLog(){
+                fetch('/history').then(r=>r.json()).then(h=>{
+                  let tbl=document.getElementById('log-tabla');
+                  tbl.innerHTML='<tr><th>t(s)</th><th>Temp</th><th>Gas</th><th>F</th></tr>';
+                  h.forEach(e=>{
+                    let row=tbl.insertRow();
+                    row.insertCell(0).innerText=e.timestamp;
+                    row.insertCell(1).innerText=e.temp;
+                    row.insertCell(2).innerText=e.gas;
+                    row.insertCell(3).innerText=e.flame?'SÍ':'NO';
+                  });
+                });
+              }
+              function switchZumb(){ fetch('/toggleBuzzer').then(r=>r.json()).then(cargarEstado); }
+              function switchDisp(){ fetch('/toggleLCD').then(r=>r.json()).then(cargarEstado); }
+              function switchRGB(){ fetch('/toggleRGB').then(r=>r.json()).then(cargarEstado); }
+              function resetLog(){ fetch('/resetLog').then(r=>r.json()).then(_=>cargarLog()); }
+              setInterval(()=>{ cargarEstado(); cargarLog(); },1000);
+              cargarEstado(); cargarLog();
+            </script></body></html>
             )rawliteral";
-            webServ.send(200, "text/html", html); // Envía la página web al cliente
+            webServ.send(200, "text/html", html);
           }
           
-          // Función para enviar el estado actual de los sensores en formato JSON
+          
           void enviarEstado() {
-            bool saltoTemp = abs(valorTemp - tempAnt) > 5; // Calcula si hay un incremento brusco de temperatura
-            // Construye un JSON con los valores actuales
-            String json = "{\"temperatura\":" + String(valorTemp, 2) + ",\"gas\":" + String(valorGas) + ",\"llama\":" + String(hayLlama ? "true" : "false") + ",\"incremento_brusco\":" + String(saltoTemp ? "true" : "false") + "}";
-            webServ.send(200, "application/json", json); // Envía el JSON al cliente
-          }
-          
-          // Función para enviar el historial de lecturas en formato JSON
-          void enviarLog() {
-            String json = "["; // Inicia un arreglo JSON
-            for (int i = 0; i < logCant; i++) { // Itera sobre los registros del historial
-              int idx = (logCant < REG_MAX ? i : (logPos + i) % REG_MAX); // Calcula el índice circular
-              // Añade cada registro al JSON
-              json += "{\"timestamp\":" + String(logDatos[idx].m / 1000) + ",\"temp\":" + String(logDatos[idx].t, 1) + ",\"gas\":" + String(logDatos[idx].g) + ",\"flame\":" + String(logDatos[idx].f ? "true" : "false") + "}";
-              if (i < logCant - 1) json += ","; // Añade una coma entre registros
+            // leer bajo mutex
+            float t; int g; bool f, z; bool d, r;
+            if (xSemaphoreTake(xMutex, portMAX_DELAY)) { // Toma mutex
+              t = valorTemp; g = valorGas; f = hayLlama; z = zumbOn; d = dispOn; r = rgbOn;
+              xSemaphoreGive(xMutex);                   // Libera mutex
             }
-            json += "]"; // Cierra el arreglo JSON
-            webServ.send(200, "application/json", json); // Envía el JSON al cliente
+            // construir JSON
+            String json = "{";
+            json += "\"temperatura\":" + String(t,1) + ",";
+            json += "\"gas\":" + String(g) + ",";
+            json += "\"llama\":" + String(f?"true":"false") + ",";
+            json += "\"buzzer\":" + String(z?"true":"false") + ",";
+            json += "\"display\":" + String(d?"true":"false") + ",";
+            json += "\"rgb\":" + String(r?"true":"false") + "}";
+            webServ.send(200, "application/json", json);
           }
           
-          // Función para alternar el estado del buzzer
+          void enviarLog() {
+            String json = "[";
+            if (xSemaphoreTake(xMutex, portMAX_DELAY)) { // Toma mutex
+              for (int i = 0; i < logCant; i++) {
+                int idx = (logCant < REG_MAX ? i : (logPos + i) % REG_MAX);
+                // Agrega entrada JSON por lectura histórica
+                json += "{\"timestamp\":" + String(logDatos[idx].m/1000) +
+                        ",\"temp\":" + String(logDatos[idx].t,1) +
+                        ",\"gas\":"  + String(logDatos[idx].g) +
+                        ",\"flame\":" + String(logDatos[idx].f?"true":"false") + "}";
+                if (i < logCant-1) json += ",";
+              }
+              xSemaphoreGive(xMutex);                   // Libera mutex
+            }
+            json += "]";
+            webServ.send(200, "application/json", json); // Envía array JSON
+          }
+          
           void alternarZumb() {
-            zumbOn = !zumbOn; // Cambia el estado del buzzer (encendido/apagado)
-            if (!zumbOn && alertaActiva) noTone(zumbPin); // Si se desactiva y hay alerta, apaga el buzzer
-            // Responde con el nuevo estado en formato JSON
-            webServ.send(200, "application/json", "{\"enabled\":" + String(zumbOn ? "true" : "false") + "}");
-          }
+            if (xSemaphoreTake(xMutex, portMAX_DELAY)) { // Toma mutex
+              zumbOn = !zumbOn;                          // Invierte estado
+              if (!zumbOn) noTone(zumbPin);              // Detiene buzzer si está apagado
+              xSemaphoreGive(xMutex);                    // Libera mutex
+            }
+            
+              // Publicar estado en MQTT
+              if (client.connected()) {
+                String state = zumbOn ? "ON" : "OFF";
+                client.publish("cerrosorientales/control/zumbon", state.c_str()); // Publica
+                Serial.println("MQTT >> Published to cerrosorientales/control/zumbon: " + state);
+              } else {
+                Serial.println("MQTT >> Failed to publish: client not connected"); // Error
+              }
+            // Respuesta HTTP
+              webServ.send(200, "application/json",
+                           "{\"enabled\":" + String(zumbOn?"true":"false") + "}");
+            }
           
-          // Función para alternar el estado del display LCD
-          void alternarDisp() {
-            dispOn = !dispOn; // Cambia el estado del display (encendido/apagado)
-            dispOn ? display.backlight() : display.noBacklight(); // Enciende o apaga la retroiluminación
-            // Responde con el nuevo estado en formato JSON
-            webServ.send(200, "application/json", "{\"enabled\":" + String(dispOn ? "true" : "false") + "}");
-          }
+            void alternarDisp() {
+              if (xSemaphoreTake(xMutex, portMAX_DELAY)) { // Toma mutex
+                dispOn = !dispOn;                         // Invierte backlight
+                dispOn ? display.backlight()               // Enciende o apaga backlight
+                       : display.noBacklight();
+                xSemaphoreGive(xMutex);                   // Libera mutex
+              }
+              webServ.send(200, "application/json",
+                           "{\"enabled\":" + String(dispOn?"true":"false") + "}");
+            }
           
-          // Función para alternar el estado del LED RGB
-          void alternarRGB() {
-            rgbOn = !rgbOn; // Cambia el estado del LED RGB (encendido/apagado)
-            if (!rgbOn) pintarRGB(255, 255, 255); // Si se desactiva, apaga el LED RGB
-            // Responde con el nuevo estado en formato JSON
-            webServ.send(200, "application/json", "{\"enabled\":" + String(rgbOn ? "true" : "false") + "}");
-          }
+            void alternarRGB() {
+              if (xSemaphoreTake(xMutex, portMAX_DELAY)) { // Toma mutex
+                rgbOn = !rgbOn;                            // Invierte flag RGB
+                if (!rgbOn) pintarRGB(0,0,0);              // Apaga LED RGB si está off
+                xSemaphoreGive(xMutex);                    // Libera mutex
+              }
+              webServ.send(200, "application/json",
+                           "{\"enabled\":" + String(rgbOn?"true":"false") + "}");
+            }
           
-          // Función para resetear el historial de lecturas
-          void resetearLog() {
-            logPos = 0;  // Reinicia la posición del historial
-            logCant = 0; // Reinicia el contador de registros
-            // Responde con un mensaje de éxito en formato JSON
-            webServ.send(200, "application/json", "{\"success\":true}");
-          }
+            void resetearLog() {
+              if (xSemaphoreTake(xMutex, portMAX_DELAY)) { // Toma mutex
+                logPos = 0; logCant = 0;                   // Limpia buffer histórico
+                xSemaphoreGive(xMutex);                    // Libera mutex
+              }
+              webServ.send(200, "application/json", "{\"success\":true}");
+            }
           
-          // Función de inicialización del sistema
+          // ===================== setup() =====================
           void setup() {
-            // Configura los pines de los actuadores como salidas
+            Serial.begin(115200);                       // Inicia comunicación serial
+          
+            // crear mutex
+            xMutex = xSemaphoreCreateMutex();
+          
+            // pines
             pinMode(zumbPin, OUTPUT);
             pinMode(rojoPin, OUTPUT);
             pinMode(verdePin, OUTPUT);
             pinMode(azulPin, OUTPUT);
-            pinMode(PIN_LLAMAS, INPUT_PULLUP); // Configura el pin del sensor de llama con pull-up
+            pinMode(PIN_LLAMAS, INPUT_PULLUP);
           
-            Wire.begin(21, 22); // Inicializa la comunicación I2C (pines SDA=21, SCL=22)
-            display.init();     // Inicializa el display LCD
-            display.backlight(); // Enciende la retroiluminación del LCD
-            pintarRGB(0, 0, 0); // Apaga el LED RGB inicialmente
-            display.setCursor(0, 0); // Posiciona el cursor en la primera línea
-            display.print("Iniciando..."); // Muestra un mensaje de inicio
+            Wire.begin(21,22);                          // Inicializa bus I2C (SDA=21, SCL=22)
+            display.init();                             // Inicializa LCD
+            display.backlight();                        // Enciende backlight LCD
+            pintarRGB(0,0,0);                           // Asegura RGB apagado
           
-            Serial.begin(115200); // Inicia la comunicación serial para depuración
-            WiFi.begin(redNombre, redClave); // Conecta a la red WiFi
-            while (WiFi.status() != WL_CONNECTED) delay(1000); // Espera hasta que se conecte
-            Serial.println(WiFi.localIP()); // Imprime la IP asignada
           
-            // Configura las rutas del servidor web
-            webServ.on("/", HTTP_GET, pagInicio);         // Ruta para la página principal
-            webServ.on("/data", HTTP_GET, enviarEstado);  // Ruta para enviar el estado actual
-            webServ.on("/history", HTTP_GET, enviarLog);  // Ruta para enviar el historial
-            webServ.on("/toggleBuzzer", HTTP_GET, alternarZumb); // Ruta para alternar el buzzer
-            webServ.on("/toggleLCD", HTTP_GET, alternarDisp);    // Ruta para alternar el LCD
-            webServ.on("/toggleRGB", HTTP_GET, alternarRGB);     // Ruta para alternar el LED RGB
-            webServ.on("/resetLog", HTTP_GET, resetearLog);      // Ruta para resetear el historial
-            webServ.begin(); // Inicia el servidor web
+            setup_wifi();
           
-            // Crea un hilo para leer los sensores usando FreeRTOS
-            xTaskCreate(leerSensores, "Sensores", 4096, NULL, 1, NULL);
+            // MQTT
+            client.setServer(mqtt_server, mqtt_port);
+            client.setCallback(mqttCallback); // Configura callback para mensajes entrantes
+          
+            // Tareas FreeRTOS
+            xTaskCreate(leerSensores, "Sensores", 4096, NULL, 1, NULL); // Tarea de lectura de sensores
+            xTaskCreate(enviarMqtt,   "MQTT",     4096, NULL, 1, NULL);// Tarea de envío MQTT
+          
+            // WebServer
+            webServ.on("/",             HTTP_GET, pagInicio);
+            webServ.on("/data",         HTTP_GET, enviarEstado);
+            webServ.on("/history",      HTTP_GET, enviarLog);
+            webServ.on("/toggleBuzzer", HTTP_GET, alternarZumb);
+            webServ.on("/toggleLCD",    HTTP_GET, alternarDisp);
+            webServ.on("/toggleRGB",    HTTP_GET, alternarRGB);
+            webServ.on("/resetLog",     HTTP_GET, resetearLog);
+            webServ.begin();
           }
           
-          // Función principal que se ejecuta en un bucle
+          // ===================== loop() =====================
           void loop() {
-            webServ.handleClient(); // Maneja las solicitudes del servidor web
+            webServ.handleClient(); // Maneja peticiones HTTP
+            if (!client.connected()) reconnect_mqtt(); // Reconecta si es necesario
+            client.loop(); // Procesa mensajes MQTT
           
-            unsigned long ahora = millis(); // Obtiene el tiempo actual
-            bool saltoTemp = abs(valorTemp - tempAnt) > 5; // Detecta un incremento brusco de temperatura
+            unsigned long ahora    = millis(); // Tiempo actual en ms desde inicio
+            static unsigned long tiempoUlt = 0; // Último tiempo de actualización
+            static float tempAnt    = 0; // Temperatura anterior para comparación
           
-            // Actualiza el sistema cada 500 ms (definido por refresco)
-            if (ahora - tiempoUlt >= refresco) {
-              tiempoUlt = ahora; // Actualiza el tiempo de la última actualización
-              if (dispOn) display.clear(); else display.noBacklight(); // Limpia el LCD o apaga la retroiluminación
+            if (ahora - tiempoUlt >= 500) {
+              tiempoUlt = ahora;
           
-              // Estado: Alarma Activada (Posible Incendio)
-              if (saltoTemp || (valorTemp > TEMP_MAX && valorGas > GAS_MAX)) {
-                alertaActiva = true; // Activa la alerta
-                if (dispOn) { // Si el display está habilitado, muestra el mensaje
+              // leer estado actual bajo mutex
+              float t; int g; bool f, z;    // Variables locales para lectura
+              if (xSemaphoreTake(xMutex, portMAX_DELAY)) {    // Toma mutex
+                t = valorTemp; g = valorGas; f = hayLlama; z = zumbOn;    // Copia valores
+                xSemaphoreGive(xMutex);
+              }
+          
+              bool saltoTemp = abs(t - tempAnt) > 5;
+          
+              // limpiar o apagar display
+              if (dispOn) display.clear(); else display.noBacklight();
+          
+              // lógica de alarmas (igual que antes), usando t, g, f, z...
+              if (saltoTemp || (t > TEMP_MAX && g > GAS_MAX)) {
+                if (dispOn) {
                   display.setCursor(0, 0);
                   display.print("Posible incendio!");
                   display.setCursor(0, 1);
-                  display.print("G:");
-                  display.print(valorGas);
+                  display.print("G:"); display.print(g);
                 }
-                pintarRGB(0, 125, 255); // LED RGB rojo (posible incendio)
-                if (zumbOn) tone(zumbPin, 1000); // Activa el buzzer si está habilitado
+                pintarRGB(255, 0, 0);
+                if (z) tone(zumbPin, 1000); // Activa buzzer
               }
-              // Estado: Detección de Gas o Temperatura Alta
-              else if (valorGas > GAS_MAX || valorTemp > TEMP_MAX) {
-                if (dispOn) { // Si el display está habilitado, muestra los valores
+              else if (g > GAS_MAX || t > TEMP_MAX) { // solo gas o solo temperatura
+                if (dispOn) {
                   display.setCursor(0, 0);
-                  display.print("T:");
-                  display.print(valorTemp);
-                  display.print("C");
+                  display.print("T:"); display.print(t); display.print("C");
                   display.setCursor(0, 1);
-                  display.print("G:");
-                  display.print(valorGas);
+                  display.print("G:"); display.print(g);
                 }
-                pintarRGB(0, 0, 255); // LED RGB amarillo (advertencia)
-                if (zumbOn) noTone(zumbPin); // Apaga el buzzer si está habilitado
+                pintarRGB(255, 255, 0);
+                if (z) noTone(zumbPin);
               }
-              // Estado: Detección de Llama
-              else if (hayLlama) {
-                alertaActiva = true; // Activa la alerta
-                if (dispOn) { // Si el display está habilitado, muestra el mensaje
+              else if (f) {   // si hay llama
+                if (dispOn) {
                   display.setCursor(0, 0);
                   display.print("FUEGO!");
                   display.setCursor(0, 1);
-                  display.print("G:");
-                  display.print(valorGas);
+                  display.print("G:"); display.print(g);
                 }
-                pintarRGB(0, 255, 255); // LED RGB rojo (fuego detectado)
-                if (zumbOn) tone(zumbPin, 1000); // Activa el buzzer si está habilitado
+                pintarRGB(255, 0, 0);
+                if (z) tone(zumbPin, 1000);
               }
-              // Estado: Monitoreo Normal
-              else {
-                if (dispOn) { // Si el display está habilitado, muestra los valores
+              else {    // si todo está bien
+                if (dispOn) {
                   display.setCursor(0, 0);
-                  display.print("T:");
-                  display.print(valorTemp);
-                  display.print("C");
+                  display.print("T:"); display.print(t); display.print("C");
                   display.setCursor(0, 1);
-                  display.print("G:");
-                  display.print(valorGas);
+                  display.print("G:"); display.print(g);
                 }
-                pintarRGB(125, 0, 255); // LED RGB verde (estado normal)
-                if (zumbOn) noTone(zumbPin); // Apaga el buzzer si está habilitado
+                pintarRGB(0, 255, 0);
+                if (z) noTone(zumbPin);
               }
+          
+              tempAnt = t; // Actualiza temperatura anterior para comparación
             }
           
-            tempAnt = valorTemp; // Actualiza la temperatura anterior para la próxima iteración
-            delay(10); // Pausa de 10 ms para evitar un uso excesivo del procesador
+          delay(10);  // Pequeño delay para evitar saturar el loop
           }
 
 
+### Codigo python Raspberry comentado
+
+           
+           import json
+           import time
+           import sqlite3
+           import threading
+           import queue
+           import logging
+           
+           import paho.mqtt.client as mqtt
+           
+           # ————— Configuración de logging —————
+           logging.basicConfig(
+               level=logging.INFO,
+               format='%(asctime)s - %(levelname)s - %(message)s'
+           )
+           
+           # ————— Configuración de brokers y topicos —————
+           LOCAL_MQTT_HOST  = "localhost"
+           LOCAL_MQTT_PORT  = 1883
+           LOCAL_MQTT_TOPIC = "cerrosorientales/sensores"
+           
+           # Ubidots MQTT
+           UBIDOTS_MQTT_HOST       = "industrial.api.ubidots.com"
+           UBIDOTS_MQTT_PORT       = 1883
+           UBIDOTS_TOKEN           = "BBUS-rQCiovHXafW96RXcBDczlsPFCFp1RI"
+           UBIDOTS_DEVICE_LABEL    = "raspi"
+           UBIDOTS_TOPICS = {
+               "temperatura": f"/v1.6/devices/{UBIDOTS_DEVICE_LABEL}/temperatura",
+               "gas":         f"/v1.6/devices/{UBIDOTS_DEVICE_LABEL}/gas",
+               "llama":       f"/v1.6/devices/{UBIDOTS_DEVICE_LABEL}/llama",
+               "alarma":       f"/v1.6/devices/{UBIDOTS_DEVICE_LABEL}/alarma"
+           }
+           # Topico para recibir comandos de Ubidots
+           UBIDOTS_CONTROL_TOPIC = f"/v1.6/devices/{UBIDOTS_DEVICE_LABEL}/alarm_control/lv"
+           
+           # ————— Base de datos SQLite —————
+           DB_PATH = "/home/pi/sensores.db"
+           
+           # Cola para procesar mensajes MQTT entrantes
+           message_queue = queue.Queue()
+           
+           # Clientes MQTT
+           local_mqtt_client  = mqtt.Client(client_id="local_client")
+           ubidots_mqtt_client = mqtt.Client(client_id="ubidots_client")
+           
+           
+           
+           # ————— Funciones de base de datos —————
+           def connect_db():
+               try:
+                   conn = sqlite3.connect(DB_PATH, check_same_thread=False) # permite acceso desde hilos
+                   return conn
+               except sqlite3.Error as e:
+                   logging.error(f"Error al conectar a SQLite: {e}")
+                   return None
+           
+           def save_to_db(temperatura, gas, llama, alarma): # Almacena datos en SQLite
+               conn = connect_db()
+               if not conn:
+                   return
+               try:
+                   cursor = conn.cursor() # Agregar timestamp
+                   cursor.execute("""      
+                       INSERT INTO datos (temperatura, gas, llama, alarma)
+                       VALUES (?, ?, ?, ?)
+                   """, (temperatura, gas, int(llama), alarma))   # Llama es booleano, pero se almacena como entero
+                   conn.commit()
+                   logging.info(f"Guardado en DB: temp={temperatura}, gas={gas}, flame={llama}, alarma={alarma}")
+               except sqlite3.Error as e:
+                   logging.error(f"Error al guardar en DB: {e}")
+               finally:
+                   conn.close()
+           
+           
+           # ————— Callback: cuando llega un mensaje de Ubidots —————
+           def on_ubidots_message(client, userdata, message):   # Recibe comandos de Ubidots
+               try:
+                   payload = message.payload.decode("utf-8")
+                   value = float(payload)
+                   # Si Ubidots envía 0 => turn off buzzer; 1 => turn on buzzer
+                   state = "ON" if value == 1 else "OFF"  # Estado del buzzer
+                   topic = "cerrosorientales/control/zumbon" # topico del buzzer
+                   local_mqtt_client.publish(topic, state)  # Publicar en el broker local
+                   logging.info(f"Forward to ESP32: topic={topic}, state={state}")  # Publicar en el broker local
+               except Exception as e:
+                   logging.error(f"Error procesando mensaje Ubidots: {e}")
+           
+           def on_ubidots_connect(client, userdata, flags, rc):  # Conexión a Ubidots
+               if rc == 0:
+                   logging.info("Conectado broker Ubidots")  #  Conexión exitosa
+                   client.subscribe(UBIDOTS_CONTROL_TOPIC)  # Suscribirse al topico de control
+                   logging.info(f"Suscrito a control: {UBIDOTS_CONTROL_TOPIC}") # Suscripción exitosa
+               else:
+                   logging.error(f"Fallo conexión Ubidots, rc={rc}")
+           
+           
+           # ————— Callback: cuando llega un mensaje del broker local —————
+           def on_local_message(client, userdata, message):  # Recibe mensajes del broker local
+               try:
+                   payload = message.payload.decode("utf-8") # Decodifica el mensaje
+                   message_queue.put(payload)  # Encola el mensaje para su procesamiento
+                   logging.info(f"Mensaje local recibido y encolado: {payload}")  # Mensaje encolado
+               except Exception as e:
+                   logging.error(f"Error recibiendo mensaje local: {e}")
+           
+           def on_local_connect(client, userdata, flags, rc):  # Conexión al broker local
+               if rc == 0:                                     #
+                   logging.info("Conectado al broker local") # Conexión exitosa
+                   client.subscribe(LOCAL_MQTT_TOPIC)
+                   logging.info(f"Suscrito a: {LOCAL_MQTT_TOPIC}")
+               else:
+                   logging.error(f"Fallo conexión local, rc={rc}")
+           
+           
+           # ————— Hilo de procesamiento de mensajes —————
+           def process_messages(): # Procesa los mensajes encolados
+               while True:
+                   payload = message_queue.get()  # bloquea hasta haber mensaje
+                   try:
+                       data = json.loads(payload)  # Decodifica el mensaje JSON
+                       temperatura = float(data.get("temperatura"))
+                       gas         = int(data.get("gas"))
+                       llama       = bool(data.get("llama"))
+                       alarma       = int(data.get("alarma"))
+           
+                       # 1) Almacenar en SQLite
+                       save_to_db(temperatura, gas, llama, alarma)
+           
+                       # 2) Publicar a Ubidots vía MQTT
+                       for var, topic in UBIDOTS_TOPICS.items(): # Publicar cada variable en su topico
+                           value = {
+                               "temperatura": temperatura,
+                               "gas": gas,
+                               "llama": int(llama),
+                               "alarma": alarma
+                           }[var]
+                           payload_ub = json.dumps({"value": value}) # Formato Ubidots
+                           ubidots_mqtt_client.publish(topic, payload_ub) # Publicar en Ubidots
+                           logging.info(f"Enviado a Ubidots: topic={topic}, payload={payload_ub}") 
+           
+                   except Exception as e:
+                       logging.error(f"Error procesando payload: {e}")
+                   finally:
+                       message_queue.task_done()
+           
+           
+           # ————— Inicialización de MQTT —————
+           def start_mqtt_clients():
+               # Local
+               local_mqtt_client.on_connect = on_local_connect
+               local_mqtt_client.on_message = on_local_message
+               local_mqtt_client.connect(LOCAL_MQTT_HOST, LOCAL_MQTT_PORT)
+           
+               # Ubidots
+               ubidots_mqtt_client.username_pw_set(UBIDOTS_TOKEN, "")
+               ubidots_mqtt_client.on_connect = on_ubidots_connect
+               ubidots_mqtt_client.on_message = on_ubidots_message
+               ubidots_mqtt_client.connect(UBIDOTS_MQTT_HOST, UBIDOTS_MQTT_PORT)
+           
+               # Iniciar bucles en hilos separados
+               local_mqtt_client.loop_start()
+               ubidots_mqtt_client.loop_start()
+           
+           
+           # ————— Punto de entrada —————
+           if name == "_main_":
+               # Crear tabla SQLite si no existe
+               conn = connect_db()
+               if conn:
+                   try:
+                       cursor = conn.cursor()
+                       cursor.execute("""
+                           CREATE TABLE IF NOT EXISTS datos (
+                               timestamp INTEGER,
+                               temperatura REAL,
+                               gas INTEGER,
+                               llama INTEGER,
+                               alarma INTEGER
+                           );
+                       """)
+                       conn.commit()
+                       logging.info("Tabla SQLite verificada/creada")
+                   except sqlite3.Error as e:
+                       logging.error(f"Error creando tabla: {e}")
+                   finally:
+                       conn.close()
+           
+               # Arrancar hilo de procesamiento
+               threading.Thread(target=process_messages, daemon=True).start()
+           
+               # Conectar a ambos brokers MQTT
+               start_mqtt_clients()
+           
+               # Mantener el script en ejecución
+               try:
+                   while True:
+                       logging.info(f"Mensajes en cola: {message_queue.qsize()}")
+                       time.sleep(10)
+               except KeyboardInterrupt:       # Ctrl+C para salir
+                   logging.info("Terminando clientes MQTT...")
+                   local_mqtt_client.loop_stop()
+                   ubidots_mqtt_client.loop_stop()
+                   local_mqtt_client.disconnect()
+                   ubidots_mqtt_client.disconnect()
+                   logging.info("Script finalizado")
 
 
 
