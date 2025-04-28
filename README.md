@@ -1713,7 +1713,51 @@ Dado que Ubidots no permite agrupar en una sola alerta los umbrales de temperatu
 
 
 
-### Implementacion Fisica
+### Implementacion 
+
+![.](imagenesWiki/dash1.jpg)
+
+Captura del tablero de control en Ubidots con datos activos en tiempo real. En la esquina superior izquierda aparece un widget termómetro mostrando 25.06 °C y la última actualización (“Last Updated: 04/25/2025 13:00”) que es el que muestra la temperatura. A su derecha, un indicador circular etiquetado “llama (raspi)” muestra el estado “Off” es decir que no hay llama en el momento. Más arriba a la derecha, un gráfico de línea refleja las lecturas de gas en el tiempo, con valores alrededor de 300–800.
+
+En la fila de abajo, a la izquierda, un widget métrico marca “282.00” como último valor de gas con su timestamp. A su lado, otro gráfico de línea traza tendencias de temperatura (24–29 °C) durante la mañana y mediodía. Finalmente, en la esquina inferior derecha, un switch grande de control remoto (“llama (raspi)”) está en posición “On”, listo para enviar comandos al dispositivo. Los ejes de los gráficos muestran fechas y horas, y todos los widgets reflejan datos frescos recibidos por MQTT.
+
+
+![.](imagenesWiki/dash.jpg)
+
+Captura de pantalla del tablero de control de Ubidots: en la parte superior se ven los menús de navegación y el nombre del dispositivo (‘raspi’), pero todas las gráficas aparecen vacías, con ejes sin valores, leyendas ‘No data available’ y puntos de datos en blanco. Los indicadores de las variables (Temperatura, Gas, Llama, Alarma) muestran guiones (‘—’) en lugar de valores numéricos. El panel de notificaciones no registra eventos debido a la desconexión MQTT, y los widgets de control remoto (switches) están inactivos. En conjunto, la interfaz muestra la estructura del dashboard sin datos en tiempo real.
+
+
+
+![.](imagenesWiki/dash2.jpg)
+En esta captura del dashboard de Ubidots podemos ver, además de los widgets de valor instantáneo, dos gráficos de línea que muestran el histórico de las mediciones:
+
+En la parte superior derecha se observa el gráfico de gas, con lecturas estables alrededor de 600–700 ppm y un pico cercano a 800 ppm al final, mientras que en el centro inferior el gráfico de temperatura muestra un ascenso desde ~24 °C hasta casi 29.5 °C al mediodía, seguido de oscilaciones entre 26–28 °C y un repunte final; ambos incluyen ejes de tiempo (09:00–13:00) y un selector de rango para analizar tendencias históricas en Ubidots.
+
+
+![.](imagenesWiki/dash3.jpg)
+Se aprecian dos tableros de control ejecutándose en paralelo: a la izquierda, la interfaz web embebida en el ESP32 muestra en tres secciones el estado actual con la temperatura, el valor de gas y la detección de llama, botones para alternar el buzzer, el LCD y el LED RGB, y un registro tabular de las últimas lecturas; a la derecha, el dashboard en la nube de Ubidots presenta un widget termómetro con la temperatura en tiempo real, un indicador circular de llama, un indicador de gas, dos gráficos de línea que trazan el histórico de temperatura y gas, y un switch grande para controlar remotamente la alarma.
+
+
+![.](imagenesWiki/msg.jpg)
+
+
+Captura de pantalla de la app de mensajería mostrando tres SMS recibidos del número “890720” que son las alarmas que genera ubidots:
+
+- Alerta de llama:
+  
+“Hola, llama tenía un valor de 1.00, en el momento: 2025-04-27 18:13:38 -0500. Revisar el valor actual y actúe de acuerdo a esto. Gracias.”
+
+- Alerta de temperatura
+
+“Hola, temperatura tomó el valor de 35.00, en el momento: 2025-04-27 18:22:02 -0500. Esto indica que hay un valor crítico… Gracias.”
+
+- Alerta de gas
+
+“Hola, gas tomó el valor de 740.00, en el momento: 2025-04-27 18:22:02 -0500. Esto indica que hay un nivel de gas peligroso… Gracias.”
+
+Cada mensaje informa la variable que superó su umbral, el valor exacto y la marca de tiempo.
+
+
 ![.](imagenesWiki/ledverde.jpg)
 
 En esta imagen se aprecia un LED iluminado en color verde, indicando que los parámetros monitoreados (por ejemplo, temperatura y nivel de gas) permanecen dentro de los rangos seguros. Como consecuencia, la alarma no se activa y el sistema se mantiene en un estado de operación normal, sin riesgos aparentes.
