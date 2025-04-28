@@ -625,6 +625,54 @@ Para que el dashboard Ubidots pueda activar/desactivar el buzzer del ESP32:
 
 
 
+
+## Configuración de Alertas SMS en Ubidots
+
+### Evento de Alerta por Umbral
+- **Qué hace:** cuando las variables temperatura y gas estan por encima del umbral o hay llama, Ubidots dispara un evento SMS.  
+- **Contenido del mensaje:**  
+  - Nombre de la variable que activó la alerta.  
+  - Valor exacto de esa variable al momento del umbral.  
+  - Marca de tiempo (fecha y hora) de la lectura.
+  - Mensaje de "revisar el valor actual  y acutuar"
+ 
+<div style="display: flex; gap: 10px; justify-content: center;">
+  <img src="imagenesWiki/evento.png" alt="Evento" width="300">
+  <img src="imagenesWiki/evento1.png" alt="Evento1" width="300">
+</div>
+
+    
+### Evento “Posible Incendio”
+Dado que Ubidots no permite agrupar en una sola alerta los umbrales de temperatura y gas, cuando ambas variables superan su límite el sistema emite dos SMS independientes, uno por temperatura y otro por gas, cada uno con el texto “Posible incendio”. La detección de llama, por su parte, se mantiene como un evento SMS separado (“mensaje llama”).
+  <p align="center">
+  <img src="imagenesWiki/evento2.jpg" />
+</p>
+
+
+> **Solo SMS**: no se envían notificaciones por email ni webhook, solo texto al número configurado.
+
+
+
+## Paso a Paso para Crear el Evento SMS en Ubidots
+
+1. En la cuenta de Ubidots ir al menú **“Events & Alerts”**.  
+2. Hacer clic en **“New Event”**.  
+3. Asignar un nombre descriptivo, p. ej. **“Alerta Sensor”**.  
+
+4. **Definir condición**:  
+   - Seleccionar la variable **“temperatura”**, operador **>**, umbral **30**.  
+   - **O** añadir cláusula para **gas > 700**.  
+   - **O** añadir cláusula para **llama == 1**.  
+5. **Configurar acción**:  
+   - Elegir **“Send SMS”**.  
+   - Ingresar número de teléfono destino.  
+
+6. **Personalizar mensaje**:
+7. **al final se tienen 3 eventos configurados (el de posible incendio y el de llama detectada)**
+     <p align="center">
+  <img src="imagenesWiki/evento3.jpg" />
+</p>
+
 ## **2.8 Diagramas UML**
 1. **Diagrama de Caso de Uso**: Describe la interacción entre los usuarios y el sistema
 <p align="center">
